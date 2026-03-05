@@ -66,6 +66,11 @@ echo 'TOKEN=abc123' | ./ende encrypt -t bob -t diana -o secret.ende
 ### 3-3) Send ciphertext file
 Only send `secret.ende`.
 
+For text-only channels (messenger/email), use:
+```bash
+echo 'TOKEN=abc123' | ./ende encrypt -t bob --text -o secret.txt
+```
+
 ---
 
 ## 4. Receiver (Bob) Workflow
@@ -78,6 +83,11 @@ Only send `secret.ende`.
 ### 4-2) Decrypt (verification required by default)
 ```bash
 ./ende decrypt -i secret.ende -o secret.txt
+```
+
+Text envelope (armored) input is also supported:
+```bash
+./ende decrypt -i secret.txt -o secret.out
 ```
 
 Important:
@@ -182,6 +192,7 @@ Options:
 - `-s, --sign-as <key-id>`: sender signing key ID (optional if default signer exists)
 - `-i, --in <path|->`: input (default `-` = stdin)
 - `-o, --out <path|->`: output (default `-` = stdout)
+- `--text`: output ASCII-armored envelope for copy/paste transport
 
 ### `ende decrypt`
 Verify + decrypt envelope.

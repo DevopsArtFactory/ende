@@ -66,6 +66,11 @@ echo 'TOKEN=abc123' | ./ende encrypt -t bob -t diana -o secret.ende
 ### 3-3) 암호문 전달
 생성된 `secret.ende` 파일만 전달합니다.
 
+메신저/이메일 같은 텍스트 채널로 보낼 때:
+```bash
+echo 'TOKEN=abc123' | ./ende encrypt -t bob --text -o secret.txt
+```
+
 ---
 
 ## 4. 받는 사람(Bob) 기준
@@ -78,6 +83,11 @@ echo 'TOKEN=abc123' | ./ende encrypt -t bob -t diana -o secret.ende
 ### 4-2) 복호화(기본: 검증 필수)
 ```bash
 ./ende decrypt -i secret.ende -o secret.txt
+```
+
+텍스트 envelope(armored) 입력도 지원:
+```bash
+./ende decrypt -i secret.txt -o secret.out
 ```
 
 중요:
@@ -182,6 +192,7 @@ recipient 키 교체
 - `-s, --sign-as <key-id>`: 송신자 서명 키 ID (기본 송신자 설정 시 생략 가능)
 - `-i, --in <path|->`: 입력(기본 `-` = stdin)
 - `-o, --out <path|->`: 출력(기본 `-` = stdout)
+- `--text`: 복붙 전송용 ASCII armor 출력
 
 ### `ende decrypt`
 검증 + 복호화

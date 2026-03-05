@@ -38,10 +38,21 @@ go build ./cmd/ende
 echo 'TOKEN=abc123' | ./ende encrypt -t bob -o secret.ende
 ```
 
+3-1. Text-safe transport (copy/paste over chat/email):
+```bash
+echo 'TOKEN=abc123' | ./ende encrypt -t bob --text -o secret.txt
+```
+
 4. Verify and decrypt:
 ```bash
 ./ende verify -i secret.ende
 ./ende decrypt -i secret.ende -o decrypted.txt
+```
+
+Text envelope input is also supported:
+```bash
+./ende verify -i secret.txt
+./ende decrypt -i secret.txt -o decrypted.txt
 ```
 
 ## Shortcuts

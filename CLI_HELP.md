@@ -125,6 +125,7 @@ Auto-generated from command --help outputs on 2026-03-05.
 | `-i, --in string` | input path or - (default "-") |
 | `-o, --out string` | output path or - (default "-") |
 | `-s, --sign-as string` | local signing key id (optional if default signer is set) |
+| `--text` | output ASCII-armored envelope for copy/paste transport |
 | `-t, --to strings` | recipient alias, github:user, or age1... public key |
 
 ### ende decrypt
@@ -424,6 +425,7 @@ Flags:
   -i, --in string        input path or - (default "-")
   -o, --out string       output path or - (default "-")
   -s, --sign-as string   local signing key id (optional if default signer is set)
+      --text             output ASCII-armored envelope for copy/paste transport
   -t, --to strings       recipient alias, github:user, or age1... public key
 ```
 
