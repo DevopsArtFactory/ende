@@ -120,11 +120,11 @@ This performs GitHub SSH key lookup for identity pinning (TOFU) and stores a pin
 
 ## Auto-generated CLI options
 See the generated options table and raw `--help` output:
-- [CLI_HELP.md](/Users/kuma/Develop/opensource/ende/CLI_HELP.md)
+- [CLI_HELP.md](CLI_HELP.md)
 
 ## Open Source
-- License: [LICENSE](/Users/kuma/Develop/opensource/ende/LICENSE)
-- Contributing guide: [CONTRIBUTING.md](/Users/kuma/Develop/opensource/ende/CONTRIBUTING.md)
-- Code of Conduct: [CODE_OF_CONDUCT.md](/Users/kuma/Develop/opensource/ende/CODE_OF_CONDUCT.md)
-- Security policy: [SECURITY.md](/Users/kuma/Develop/opensource/ende/SECURITY.md)
-- Changelog: [CHANGELOG.md](/Users/kuma/Develop/opensource/ende/CHANGELOG.md)
+- License: [LICENSE](LICENSE)
+- Contributing guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Code of Conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- Security policy: [SECURITY.md](SECURITY.md)
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
