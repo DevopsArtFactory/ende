@@ -23,19 +23,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 	var debug bool
 	root := &cobra.Command{
 		Use:   "ende",
 		Short: "Ende securely encrypts secrets between developers",
+		Version: version,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if debug {
 				diag.SetEnabled(true)
 			}
 		},
 	}
+	root.SetVersionTemplate("{{.Use}} version {{.Version}}\ncommit: " + commit + "\nbuilt: " + date + "\n")
+	root.Flags().BoolP("version", "V", false, "print version information")
 	root.PersistentFlags().BoolVar(&debug, "debug", false, "enable diagnostic logs to stderr")
-	root.AddCommand(newKeyCommand(), newRecipientCommand(), newSenderCommand(), newRegisterCommand(), newEncryptCommand(), newDecryptCommand(), newVerifyCommand())
+	root.AddCommand(newVersionCommand(), newKeyCommand(), newRecipientCommand(), newSenderCommand(), newRegisterCommand(), newEncryptCommand(), newDecryptCommand(), newVerifyCommand())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -47,6 +56,17 @@ func newKeyCommand() *cobra.Command {
 	cmd := &cobra.Command{Use: "key", Short: "Manage local keys", Aliases: []string{"k"}}
 	cmd.AddCommand(newKeygenCommand(), newKeyExportCommand(), newKeyImportCommand(), newKeyListCommand(), newKeyUseCommand())
 	return cmd
+}
+
+func newVersionCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print version information",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Fprintf(cmd.OutOrStdout(), "ende version %s\ncommit: %s\nbuilt: %s\n", version, commit, date)
+			return nil
+		},
+	}
 }
 
 func newKeygenCommand() *cobra.Command {
