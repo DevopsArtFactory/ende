@@ -28,9 +28,18 @@ type KeyEntry struct {
 	SignPublic  string `yaml:"sign_public"`
 }
 
+type SenderEntry struct {
+	ID          string `yaml:"id"`
+	SignPublic  string `yaml:"sign_public"`
+	Fingerprint string `yaml:"fingerprint"`
+	Source      string `yaml:"source,omitempty"`
+	Username    string `yaml:"username,omitempty"`
+}
+
 type File struct {
 	Recipients map[string]RecipientEntry `yaml:"recipients"`
 	Keys       map[string]KeyEntry       `yaml:"keys"`
+	Senders    map[string]SenderEntry    `yaml:"senders,omitempty"`
 	Defaults   Defaults                  `yaml:"defaults,omitempty"`
 }
 
@@ -93,6 +102,9 @@ func Load() (*Store, error) {
 	if st.Data.Keys == nil {
 		st.Data.Keys = map[string]KeyEntry{}
 	}
+	if st.Data.Senders == nil {
+		st.Data.Senders = map[string]SenderEntry{}
+	}
 	return st, nil
 }
 
@@ -112,10 +124,13 @@ func FingerprintAgePublicKey(pub string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func (s *Store) AddRecipient(alias, agePublic, source, username string) error {
+func (s *Store) AddRecipient(alias, agePublic, source, username string, force bool) error {
 	alias = strings.TrimSpace(alias)
 	if alias == "" {
 		return fmt.Errorf("alias is required")
+	}
+	if _, exists := s.Data.Recipients[alias]; exists && !force {
+		return fmt.Errorf("recipient alias %s already exists; use --force to overwrite", alias)
 	}
 	s.Data.Recipients[alias] = RecipientEntry{
 		Alias:       alias,
@@ -153,6 +168,43 @@ func (s *Store) Key(id string) (KeyEntry, bool) {
 func (s *Store) AllKeyIDs() []string {
 	ids := make([]string, 0, len(s.Data.Keys))
 	for id := range s.Data.Keys {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func FingerprintSignPublicKey(pub string) string {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(pub)))
+	return hex.EncodeToString(sum[:])
+}
+
+func (s *Store) AddSender(id, signPublic, source, username string, force bool) error {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return fmt.Errorf("sender id is required")
+	}
+	if _, exists := s.Data.Senders[id]; exists && !force {
+		return fmt.Errorf("sender id %s already exists; use --force to overwrite", id)
+	}
+	s.Data.Senders[id] = SenderEntry{
+		ID:          id,
+		SignPublic:  strings.TrimSpace(signPublic),
+		Fingerprint: FingerprintSignPublicKey(signPublic),
+		Source:      source,
+		Username:    username,
+	}
+	return nil
+}
+
+func (s *Store) Sender(id string) (SenderEntry, bool) {
+	v, ok := s.Data.Senders[id]
+	return v, ok
+}
+
+func (s *Store) AllSenderIDs() []string {
+	ids := make([]string, 0, len(s.Data.Senders))
+	for id := range s.Data.Senders {
 		ids = append(ids, id)
 	}
 	sort.Strings(ids)

@@ -63,6 +63,7 @@ Auto-generated from command --help outputs on 2026-03-05.
 | Flag | Description |
 |---|---|
 | `--alias string` | recipient alias |
+| `--force` | overwrite existing recipient alias |
 | `--github string` | github username (optional resolver) |
 | `-h, --help` | help for add |
 | `--key string` | age recipient public key |
@@ -80,6 +81,41 @@ Auto-generated from command --help outputs on 2026-03-05.
 |---|---|
 | `-h, --help` | help for rotate |
 | `--key string` | new age recipient public key |
+
+### ende sender
+
+| Flag | Description |
+|---|---|
+| `-h, --help` | help for sender |
+
+### ende sender add
+
+| Flag | Description |
+|---|---|
+| `--force` | overwrite existing sender entry |
+| `--github string` | optional github username metadata |
+| `-h, --help` | help for add |
+| `--id string` | sender id to trust |
+| `--signing-public string` | sender Ed25519 public key (base64) |
+
+### ende sender show
+
+| Flag | Description |
+|---|---|
+| `-h, --help` | help for show |
+
+### ende sender rotate
+
+| Flag | Description |
+|---|---|
+| `-h, --help` | help for rotate |
+| `--signing-public string` | new sender Ed25519 public key (base64) |
+
+### ende sender list
+
+| Flag | Description |
+|---|---|
+| `-h, --help` | help for list |
 
 ### ende encrypt
 
@@ -124,6 +160,7 @@ Available Commands:
   help        Help about any command
   key         Manage local keys
   recipient   Manage recipient aliases
+  sender      Manage trusted sender signing keys
   verify      Verify signature without decrypting
 
 Flags:
@@ -260,6 +297,7 @@ Usage:
 
 Flags:
       --alias string    recipient alias
+      --force           overwrite existing recipient alias
       --github string   github username (optional resolver)
   -h, --help            help for add
       --key string      age recipient public key
@@ -289,6 +327,85 @@ Usage:
 Flags:
   -h, --help         help for rotate
       --key string   new age recipient public key
+```
+
+### ende sender --help
+
+```text
+Manage trusted sender signing keys
+
+Usage:
+  ende sender [command]
+
+Aliases:
+  sender, snd
+
+Available Commands:
+  add         Add trusted sender signing public key
+  list        List trusted senders
+  rotate      Rotate trusted sender signing public key
+  show        Show trusted sender details
+
+Flags:
+  -h, --help   help for sender
+
+Use "ende sender [command] --help" for more information about a command.
+```
+
+### ende sender add --help
+
+```text
+Add trusted sender signing public key
+
+Usage:
+  ende sender add [flags]
+
+Flags:
+      --force                   overwrite existing sender entry
+      --github string           optional github username metadata
+  -h, --help                    help for add
+      --id string               sender id to trust
+      --signing-public string   sender Ed25519 public key (base64)
+```
+
+### ende sender show --help
+
+```text
+Show trusted sender details
+
+Usage:
+  ende sender show <id> [flags]
+
+Flags:
+  -h, --help   help for show
+```
+
+### ende sender rotate --help
+
+```text
+Rotate trusted sender signing public key
+
+Usage:
+  ende sender rotate <id> [flags]
+
+Flags:
+  -h, --help                    help for rotate
+      --signing-public string   new sender Ed25519 public key (base64)
+```
+
+### ende sender list --help
+
+```text
+List trusted senders
+
+Usage:
+  ende sender list [flags]
+
+Aliases:
+  list, ls
+
+Flags:
+  -h, --help   help for list
 ```
 
 ### ende encrypt --help

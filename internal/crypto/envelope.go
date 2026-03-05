@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"time"
+	"unicode"
 
 	"filippo.io/age"
 	"github.com/fxamacker/cbor/v2"
@@ -12,6 +14,11 @@ import (
 )
 
 const EnvelopeVersion = "ende-envelope-v1"
+
+const (
+	armorBegin = "-----BEGIN ENDE ENVELOPE-----"
+	armorEnd   = "-----END ENDE ENVELOPE-----"
+)
 
 type Metadata struct {
 	Version        string   `cbor:"version" json:"version"`
@@ -105,8 +112,28 @@ func Seal(plaintext []byte, recipients []age.Recipient, senderKeyID, signerPubli
 
 func DecodeEnvelope(envelopeBytes []byte) (*Envelope, []byte, error) {
 	var env Envelope
-	if err := cbor.Unmarshal(envelopeBytes, &env); err != nil {
-		return nil, nil, fmt.Errorf("decode envelope: %w", err)
+	input := bytes.TrimSpace(envelopeBytes)
+	if len(input) == 0 {
+		return nil, nil, fmt.Errorf("decode envelope: empty input")
+	}
+	if decoded, ok, err := decodeArmoredEnvelope(input); err != nil {
+		return nil, nil, err
+	} else if ok {
+		input = decoded
+	}
+
+	if err := cbor.Unmarshal(input, &env); err != nil {
+		// Fallback: allow text-safe transport by accepting base64-encoded envelopes.
+		decodedB64, b64Err := decodeBase64Loose(string(input))
+		if b64Err == nil {
+			if err2 := cbor.Unmarshal(decodedB64, &env); err2 == nil {
+				input = decodedB64
+			} else {
+				return nil, nil, fmt.Errorf("decode envelope: %w", err)
+			}
+		} else {
+			return nil, nil, fmt.Errorf("decode envelope: %w", err)
+		}
 	}
 	if env.Metadata.Version != EnvelopeVersion {
 		return nil, nil, fmt.Errorf("unsupported envelope version: %s", env.Metadata.Version)
@@ -116,6 +143,65 @@ func DecodeEnvelope(envelopeBytes []byte) (*Envelope, []byte, error) {
 		return nil, nil, fmt.Errorf("decode ciphertext: %w", err)
 	}
 	return &env, ciphertext, nil
+}
+
+func EncodeTextEnvelope(envelopeBytes []byte) []byte {
+	b64 := base64.StdEncoding.EncodeToString(envelopeBytes)
+	var out strings.Builder
+	out.WriteString(armorBegin)
+	out.WriteString("\n")
+	for i := 0; i < len(b64); i += 64 {
+		end := i + 64
+		if end > len(b64) {
+			end = len(b64)
+		}
+		out.WriteString(b64[i:end])
+		out.WriteString("\n")
+	}
+	out.WriteString(armorEnd)
+	out.WriteString("\n")
+	return []byte(out.String())
+}
+
+func decodeArmoredEnvelope(input []byte) ([]byte, bool, error) {
+	s := strings.TrimSpace(string(input))
+	if !strings.HasPrefix(s, armorBegin) {
+		return nil, false, nil
+	}
+	if !strings.Contains(s, armorEnd) {
+		return nil, false, fmt.Errorf("decode envelope: missing armor end marker")
+	}
+	lines := strings.Split(s, "\n")
+	var payload strings.Builder
+	inBody := false
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		switch line {
+		case armorBegin:
+			inBody = true
+		case armorEnd:
+			inBody = false
+		default:
+			if inBody && line != "" {
+				payload.WriteString(line)
+			}
+		}
+	}
+	decoded, err := decodeBase64Loose(payload.String())
+	if err != nil {
+		return nil, false, fmt.Errorf("decode envelope: invalid armored payload: %w", err)
+	}
+	return decoded, true, nil
+}
+
+func decodeBase64Loose(s string) ([]byte, error) {
+	noWS := strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) {
+			return -1
+		}
+		return r
+	}, s)
+	return base64.StdEncoding.DecodeString(noWS)
 }
 
 func VerifyEnvelope(envelopeBytes []byte) (*Envelope, []byte, error) {

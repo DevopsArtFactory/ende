@@ -4,6 +4,7 @@
 - recipient public-key encryption (`age` / X25519)
 - sender authentication (Ed25519 signature)
 - local trust root (pinned keyring)
+- trusted sender pinning (`sender_key_id` + signing public key)
 
 ## Security model
 - A encrypts to B's recipient key -> B can decrypt.
@@ -28,6 +29,8 @@ go build ./cmd/ende
 ```bash
 ./ende key export --name bob --type recipient > bob.agepub
 ./ende recipient add --alias bob --key "$(cat bob.agepub)"
+./ende key export --name bob --type signing-public > bob.signpub
+./ende sender add --id bob --signing-public "$(cat bob.signpub)"
 ```
 
 3. Encrypt + sign:
@@ -47,6 +50,7 @@ echo 'TOKEN=abc123' | ./ende encrypt -t bob -o secret.ende
 - `ende v` = `ende verify`
 - `ende k` = `ende key`
 - `ende rcpt` = `ende recipient`
+- `ende snd` = `ende sender`
 - `ende key kg` = `ende key keygen`
 - `ende key ls` = `ende key list`
 

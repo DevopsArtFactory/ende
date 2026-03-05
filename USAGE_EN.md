@@ -7,6 +7,7 @@ Core guarantees:
 - Encrypted with recipient public key so **only intended recipients can decrypt**
 - Signed by sender so **tampering/spoofing is detectable**
 - Local keyring is the trust root (GitHub username mode is optional)
+- Decrypt requires a **trusted sender pin** (`sender_key_id` + signing public key match)
 
 ---
 
@@ -39,11 +40,13 @@ Bob exports his recipient public key; Alice stores it as an alias.
 On Bob's side:
 ```bash
 ./ende key export --name bob --type recipient
+./ende key export --name bob --type signing-public
 ```
 
 On Alice's side:
 ```bash
 ./ende recipient add --alias bob --key "age1..."
+./ende sender add --id bob --signing-public "<base64-ed25519-public>"
 ```
 
 ### 3-2) Encrypt + sign secret
@@ -79,6 +82,7 @@ Only send `secret.ende`.
 
 Important:
 - Default is `--verify-required=true`; decrypt fails if signature verification fails.
+- If sender is not pinned in trusted senders, decrypt fails.
 - Plaintext stdout is blocked by default. Use `--out -` explicitly to allow stdout.
 
 Explicit stdout example:
@@ -111,6 +115,7 @@ Behavior:
 - `ende v` = `ende verify`
 - `ende k` = `ende key`
 - `ende rcpt` = `ende recipient`
+- `ende snd` = `ende sender`
 - `ende key kg` = `ende key keygen`
 - `ende key ls` = `ende key list`
 
@@ -194,11 +199,36 @@ Options:
 
 ---
 
+## 6-4) sender
+### `ende sender add`
+Add trusted sender signing key pin.
+
+Options:
+- `--id <sender-id>`: sender ID to trust (required)
+- `--signing-public <base64>`: Ed25519 public key (required)
+- `--github <username>`: optional metadata
+- `--force`: overwrite existing sender
+
+### `ende sender show <id>`
+Show trusted sender details.
+
+### `ende sender rotate <id>`
+Rotate trusted sender signing public key.
+
+Options:
+- `--signing-public <base64>`: new Ed25519 public key (required)
+
+### `ende sender list`
+List trusted senders.
+
+---
+
 ## 7. Security Design Considerations
 
 - Trust root
   - Local keyring with pinned keys is the default trust root
   - GitHub username is convenience metadata, not a trust root
+  - Trusted sender pin (`sender id -> signing public key`) is mandatory for secure decrypt
 
 - No custom crypto primitive implementation
   - Uses `filippo.io/age`
@@ -212,6 +242,7 @@ Options:
 - Secure defaults
   - `--sign-as` required in `encrypt` unless default signer is configured
   - `verify-required=true` by default in `decrypt`
+  - unknown sender IDs are rejected during decrypt
   - Plaintext stdout blocked by default (`--out -` required)
   - Private key file permission `0600` enforced
 

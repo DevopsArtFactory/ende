@@ -23,7 +23,7 @@ func main() {
 		Use:   "ende",
 		Short: "Ende securely encrypts secrets between developers",
 	}
-	root.AddCommand(newKeyCommand(), newRecipientCommand(), newEncryptCommand(), newDecryptCommand(), newVerifyCommand())
+	root.AddCommand(newKeyCommand(), newRecipientCommand(), newSenderCommand(), newEncryptCommand(), newDecryptCommand(), newVerifyCommand())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -85,6 +85,10 @@ func newKeygenCommand() *cobra.Command {
 				SignPrivate: signPath,
 				SignPublic:  signPub,
 			})
+			// Local keys are always trusted senders for self-verification use cases.
+			if err := store.AddSender(name, signPub, "local-key", "", true); err != nil {
+				return err
+			}
 			if err := store.Save(); err != nil {
 				return err
 			}
@@ -163,7 +167,7 @@ func newKeyImportCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := store.AddRecipient(name, pub, "import", ""); err != nil {
+			if err := store.AddRecipient(name, pub, "import", "", false); err != nil {
 				return err
 			}
 			if err := store.Save(); err != nil {
@@ -175,6 +179,50 @@ func newKeyImportCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&name, "name", "", "recipient alias")
 	cmd.Flags().StringVar(&file, "file", "", "file with age recipient")
+	return cmd
+}
+
+func newSenderCommand() *cobra.Command {
+	cmd := &cobra.Command{Use: "sender", Short: "Manage trusted sender signing keys", Aliases: []string{"snd"}}
+	cmd.AddCommand(newSenderAddCommand(), newSenderShowCommand(), newSenderRotateCommand(), newSenderListCommand())
+	return cmd
+}
+
+func newSenderAddCommand() *cobra.Command {
+	var id, signingPublic, githubUser string
+	var force bool
+	cmd := &cobra.Command{
+		Use:   "add",
+		Short: "Add trusted sender signing public key",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if id == "" || signingPublic == "" {
+				return fmt.Errorf("--id and --signing-public are required")
+			}
+			if _, err := sign.ParsePublicKey(signingPublic); err != nil {
+				return fmt.Errorf("invalid signing public key: %w", err)
+			}
+			store, err := keyring.Load()
+			if err != nil {
+				return err
+			}
+			source := "manual"
+			if githubUser != "" {
+				source = "github"
+			}
+			if err := store.AddSender(id, signingPublic, source, githubUser, force); err != nil {
+				return err
+			}
+			if err := store.Save(); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "added trusted sender %s (fp=%s)\n", id, short(keyring.FingerprintSignPublicKey(signingPublic)))
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&id, "id", "", "sender id to trust")
+	cmd.Flags().StringVar(&signingPublic, "signing-public", "", "sender Ed25519 public key (base64)")
+	cmd.Flags().StringVar(&githubUser, "github", "", "optional github username metadata")
+	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing sender entry")
 	return cmd
 }
 
@@ -202,6 +250,11 @@ func newKeyListCommand() *cobra.Command {
 			for _, alias := range store.AllRecipientAliases() {
 				r, _ := store.Recipient(alias)
 				fmt.Fprintf(cmd.OutOrStdout(), "- %s (%s fp=%s)\n", alias, r.Source, short(r.Fingerprint))
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "[trusted-senders]")
+			for _, id := range store.AllSenderIDs() {
+				s, _ := store.Sender(id)
+				fmt.Fprintf(cmd.OutOrStdout(), "- %s (%s fp=%s)\n", id, s.Source, short(s.Fingerprint))
 			}
 			return nil
 		},
@@ -248,6 +301,7 @@ func newRecipientCommand() *cobra.Command {
 func newRecipientAddCommand() *cobra.Command {
 	var alias, key, githubUser string
 	var keyIndex int
+	var force bool
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add recipient by alias or GitHub username",
@@ -281,7 +335,7 @@ func newRecipientAddCommand() *cobra.Command {
 						return fmt.Errorf("github key pin mismatch for %s: expected %s got %s", githubUser, existing.GitHubSSHPin, sshPin)
 					}
 				}
-				if err := store.AddRecipient(alias, key, "github", githubUser); err != nil {
+				if err := store.AddRecipient(alias, key, "github", githubUser, force); err != nil {
 					return err
 				}
 				r := store.Data.Recipients[alias]
@@ -300,7 +354,7 @@ func newRecipientAddCommand() *cobra.Command {
 			if _, err := age.ParseX25519Recipient(key); err != nil {
 				return fmt.Errorf("invalid age recipient: %w", err)
 			}
-			if err := store.AddRecipient(alias, key, "local", ""); err != nil {
+			if err := store.AddRecipient(alias, key, "local", "", force); err != nil {
 				return err
 			}
 			if err := store.Save(); err != nil {
@@ -314,6 +368,85 @@ func newRecipientAddCommand() *cobra.Command {
 	cmd.Flags().StringVar(&key, "key", "", "age recipient public key")
 	cmd.Flags().StringVar(&githubUser, "github", "", "github username (optional resolver)")
 	cmd.Flags().IntVar(&keyIndex, "key-index", 0, "github ssh key index for pinning")
+	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing recipient alias")
+	return cmd
+}
+
+func newSenderListCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List trusted senders",
+		Aliases: []string{
+			"ls",
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			store, err := keyring.Load()
+			if err != nil {
+				return err
+			}
+			for _, id := range store.AllSenderIDs() {
+				s, _ := store.Sender(id)
+				fmt.Fprintf(cmd.OutOrStdout(), "- %s source=%s fp=%s\n", id, s.Source, short(s.Fingerprint))
+			}
+			return nil
+		},
+	}
+	return cmd
+}
+
+func newSenderShowCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "show <id>",
+		Short: "Show trusted sender details",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			store, err := keyring.Load()
+			if err != nil {
+				return err
+			}
+			s, ok := store.Sender(args[0])
+			if !ok {
+				return fmt.Errorf("trusted sender not found: %s", args[0])
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "id: %s\nsource: %s\nusername: %s\nsign_public: %s\nfingerprint: %s\n", s.ID, s.Source, s.Username, s.SignPublic, s.Fingerprint)
+			return nil
+		},
+	}
+	return cmd
+}
+
+func newSenderRotateCommand() *cobra.Command {
+	var signingPublic string
+	cmd := &cobra.Command{
+		Use:   "rotate <id>",
+		Short: "Rotate trusted sender signing public key",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if signingPublic == "" {
+				return fmt.Errorf("--signing-public is required")
+			}
+			if _, err := sign.ParsePublicKey(signingPublic); err != nil {
+				return fmt.Errorf("invalid signing public key: %w", err)
+			}
+			store, err := keyring.Load()
+			if err != nil {
+				return err
+			}
+			prev, ok := store.Sender(args[0])
+			if !ok {
+				return fmt.Errorf("trusted sender not found: %s", args[0])
+			}
+			if err := store.AddSender(args[0], signingPublic, prev.Source, prev.Username, true); err != nil {
+				return err
+			}
+			if err := store.Save(); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "rotated trusted sender %s (fp=%s)\n", args[0], short(keyring.FingerprintSignPublicKey(signingPublic)))
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&signingPublic, "signing-public", "", "new sender Ed25519 public key (base64)")
 	return cmd
 }
 
@@ -376,6 +509,7 @@ func newRecipientRotateCommand() *cobra.Command {
 func newEncryptCommand() *cobra.Command {
 	var tos []string
 	var signAs, in, out string
+	var textOut bool
 	cmd := &cobra.Command{
 		Use:   "encrypt",
 		Short: "Encrypt and sign secret payload",
@@ -427,6 +561,9 @@ func newEncryptCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if textOut {
+				envelope = crypto.EncodeTextEnvelope(envelope)
+			}
 			if err := endeio.WriteOutput(out, envelope); err != nil {
 				return err
 			}
@@ -437,6 +574,7 @@ func newEncryptCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&signAs, "sign-as", "s", "", "local signing key id (optional if default signer is set)")
 	cmd.Flags().StringVarP(&in, "in", "i", "-", "input path or -")
 	cmd.Flags().StringVarP(&out, "out", "o", "-", "output path or -")
+	cmd.Flags().BoolVar(&textOut, "text", false, "output ASCII-armored envelope for copy/paste transport")
 	return cmd
 }
 
@@ -470,10 +608,12 @@ func newDecryptCommand() *cobra.Command {
 				return err
 			}
 			if verifyRequired {
-				if sender, ok := store.Key(env.Metadata.SenderKeyID); ok {
-					if sender.SignPublic != env.SignerPublic {
-						return fmt.Errorf("sender key id/signer public mismatch for %s", env.Metadata.SenderKeyID)
-					}
+				trusted, ok := store.Sender(env.Metadata.SenderKeyID)
+				if !ok {
+					return fmt.Errorf("untrusted sender id %s: register with `ende sender add`", env.Metadata.SenderKeyID)
+				}
+				if trusted.SignPublic != env.SignerPublic {
+					return fmt.Errorf("trusted sender mismatch for %s", env.Metadata.SenderKeyID)
 				}
 			}
 			if err := endeio.WriteOutput(out, plaintext); err != nil {
@@ -505,7 +645,15 @@ func newVerifyCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "verified\nversion: %s\nsender_key_id: %s\ncreated_at: %s\nsigner_fingerprint: %s\n", env.Metadata.Version, env.Metadata.SenderKeyID, env.Metadata.CreatedAt, short(sha256Hex(env.SignerPublic)))
+			store, err := keyring.Load()
+			if err != nil {
+				return err
+			}
+			trustedState := "untrusted"
+			if sender, ok := store.Sender(env.Metadata.SenderKeyID); ok && sender.SignPublic == env.SignerPublic {
+				trustedState = "trusted"
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "verified\ntrust: %s\nversion: %s\nsender_key_id: %s\ncreated_at: %s\nsigner_fingerprint: %s\n", trustedState, env.Metadata.Version, env.Metadata.SenderKeyID, env.Metadata.CreatedAt, short(sha256Hex(env.SignerPublic)))
 			return nil
 		},
 	}

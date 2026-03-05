@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"encoding/base64"
 	"testing"
 
 	"filippo.io/age"
@@ -113,5 +114,31 @@ func TestMultiRecipient(t *testing.T) {
 	}
 	if _, _, err := Open(env, []age.Identity{idC}, true); err == nil {
 		t.Fatal("recipient C should not decrypt")
+	}
+}
+
+func TestDecodeEnvelopeFromBase64(t *testing.T) {
+	id := mustIdentity(t)
+	signPub, signPriv := mustSignKeys(t)
+	env, err := Seal([]byte("base64-ok"), []age.Recipient{id.Recipient()}, "alice", signPub, signPriv, nil)
+	if err != nil {
+		t.Fatalf("seal: %v", err)
+	}
+	b64 := []byte(base64.StdEncoding.EncodeToString(env))
+	if _, out, err := Open(b64, []age.Identity{id}, true); err != nil || string(out) != "base64-ok" {
+		t.Fatalf("open base64 envelope failed: %v", err)
+	}
+}
+
+func TestDecodeEnvelopeFromArmor(t *testing.T) {
+	id := mustIdentity(t)
+	signPub, signPriv := mustSignKeys(t)
+	env, err := Seal([]byte("armor-ok"), []age.Recipient{id.Recipient()}, "alice", signPub, signPriv, nil)
+	if err != nil {
+		t.Fatalf("seal: %v", err)
+	}
+	armored := EncodeTextEnvelope(env)
+	if _, out, err := Open(armored, []age.Identity{id}, true); err != nil || string(out) != "armor-ok" {
+		t.Fatalf("open armored envelope failed: %v", err)
 	}
 }

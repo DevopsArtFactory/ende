@@ -7,6 +7,7 @@
 - 수신자 공개키로 암호화되어 **수신자만 복호화 가능**
 - 송신자 서명이 포함되어 **위조/변조 탐지 가능**
 - 로컬 keyring을 신뢰 루트로 사용 (GitHub username은 선택 기능)
+- 복호화 시 **신뢰된 송신자 pin**(`sender_key_id` + 서명 공개키 일치) 필수
 
 ---
 
@@ -39,11 +40,13 @@ Bob이 자신의 recipient 공개키를 전달하면 Alice가 alias로 등록합
 Bob 측 공개키 출력:
 ```bash
 ./ende key export --name bob --type recipient
+./ende key export --name bob --type signing-public
 ```
 
 Alice 측 등록:
 ```bash
 ./ende recipient add --alias bob --key "age1..."
+./ende sender add --id bob --signing-public "<base64-ed25519-public>"
 ```
 
 ### 3-2) 비밀값 암호화 + 서명
@@ -79,6 +82,7 @@ echo 'TOKEN=abc123' | ./ende encrypt -t bob -t diana -o secret.ende
 
 중요:
 - 기본값 `--verify-required=true`로 서명 검증 실패 시 복호화 실패.
+- 신뢰된 sender pin이 없으면 복호화 실패.
 - 평문 stdout 출력은 기본 차단되며, 명시적으로 `--out -`를 줘야만 stdout 허용.
 
 명시적 stdout 출력 예:
@@ -111,6 +115,7 @@ echo 'TOKEN=abc123' | ./ende encrypt -t bob -t diana -o secret.ende
 - `ende v` = `ende verify`
 - `ende k` = `ende key`
 - `ende rcpt` = `ende recipient`
+- `ende snd` = `ende sender`
 - `ende key kg` = `ende key keygen`
 - `ende key ls` = `ende key list`
 
@@ -194,11 +199,36 @@ recipient 키 교체
 
 ---
 
+## 6-4) sender
+### `ende sender add`
+신뢰할 송신자 서명 키 pin 등록
+
+옵션:
+- `--id <sender-id>`: 신뢰할 송신자 ID (필수)
+- `--signing-public <base64>`: Ed25519 공개키 (필수)
+- `--github <username>`: 선택 메타데이터
+- `--force`: 기존 sender 덮어쓰기
+
+### `ende sender show <id>`
+신뢰된 송신자 상세 조회
+
+### `ende sender rotate <id>`
+신뢰된 송신자 서명 공개키 교체
+
+옵션:
+- `--signing-public <base64>`: 새 Ed25519 공개키 (필수)
+
+### `ende sender list`
+신뢰된 송신자 목록 출력
+
+---
+
 ## 7. 설계 시 고려한 보안 사항
 
 - 신뢰 루트
   - 기본 신뢰 루트는 로컬 keyring에 pin된 공개키
   - GitHub username은 편의 기능이며 신뢰 루트가 아님
+  - sender ID -> 서명 공개키 pin을 복호화 시 강제 검증
 
 - 암호 primitive 직접 구현 금지
   - `filippo.io/age` 사용
@@ -212,6 +242,7 @@ recipient 키 교체
 - 기본 안전 정책
   - `encrypt`에서 `--sign-as` 필수(단, 기본 송신자 설정 시 생략 가능)
   - `decrypt`에서 `verify-required=true` 기본
+  - unknown sender ID는 복호화 단계에서 거부
   - 평문 stdout 기본 차단 (`--out -` 명시 필요)
   - 개인키 파일 권한 `0600` 강제
 
