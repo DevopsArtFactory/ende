@@ -1,0 +1,234 @@
+# Ende CLI Usage Guide (Sender/Receiver Workflow)
+
+## 1. Overview
+`ende` is a CLI for exchanging secrets (tokens/passwords/etc.) between developers using encrypted payloads instead of plaintext.
+
+Core guarantees:
+- Encrypted with recipient public key so **only intended recipients can decrypt**
+- Signed by sender so **tampering/spoofing is detectable**
+- Local keyring is the trust root (GitHub username mode is optional)
+
+---
+
+## 2. Initial Setup (One-time per user)
+Each developer generates their local keys.
+
+```bash
+./ende key keygen --name <my-id>
+```
+
+Example:
+```bash
+./ende key keygen --name alice
+./ende key keygen --name bob
+./ende key use --name alice
+```
+
+Generated assets:
+- `~/.config/ende/keyring.yaml`
+- `~/.config/ende/keys/<id>.agekey` (decryption private key)
+- `~/.config/ende/keys/<id>.signkey` (signing private key)
+
+---
+
+## 3. Sender (Alice) Workflow
+
+### 3-1) Register recipient (Bob) public key
+Bob exports his recipient public key; Alice stores it as an alias.
+
+On Bob's side:
+```bash
+./ende key export --name bob --type recipient
+```
+
+On Alice's side:
+```bash
+./ende recipient add --alias bob --key "age1..."
+```
+
+### 3-2) Encrypt + sign secret
+```bash
+echo 'TOKEN=abc123' | ./ende encrypt -t bob -o secret.ende
+```
+
+Important:
+- `--sign-as` is required unless a default signer is set via `ende key use`.
+- `--to` can be repeated for multi-recipient delivery.
+
+Multi-recipient example:
+```bash
+echo 'TOKEN=abc123' | ./ende encrypt -t bob -t diana -o secret.ende
+```
+
+### 3-3) Send ciphertext file
+Only send `secret.ende`.
+
+---
+
+## 4. Receiver (Bob) Workflow
+
+### 4-1) Verify signature first
+```bash
+./ende verify -i secret.ende
+```
+
+### 4-2) Decrypt (verification required by default)
+```bash
+./ende decrypt -i secret.ende -o secret.txt
+```
+
+Important:
+- Default is `--verify-required=true`; decrypt fails if signature verification fails.
+- Plaintext stdout is blocked by default. Use `--out -` explicitly to allow stdout.
+
+Explicit stdout example:
+```bash
+./ende decrypt -i secret.ende -o -
+```
+
+---
+
+## 5. GitHub Username Mode (Optional)
+The default trust model is the local keyring. GitHub mode is a convenience layer.
+
+Register example:
+```bash
+./ende recipient add --github octocat --key "age1..." --key-index 0
+```
+
+Behavior:
+- Looks up GitHub SSH keys and stores a TOFU pin
+- On re-registration, pin mismatch causes hard failure
+- Actual encryption still uses the provided `age` recipient key (`--key`)
+
+---
+
+## 6. Command Reference
+
+### Command aliases (shortcuts)
+- `ende enc` = `ende encrypt`
+- `ende dec` = `ende decrypt`
+- `ende v` = `ende verify`
+- `ende k` = `ende key`
+- `ende rcpt` = `ende recipient`
+- `ende key kg` = `ende key keygen`
+- `ende key ls` = `ende key list`
+
+## 6-1) key
+### `ende key keygen`
+Generate local key material.
+
+Options:
+- `--name <id>`: key ID (required)
+
+### `ende key export`
+Export public key material.
+
+Options:
+- `--name <id>`: key ID (required)
+- `--type recipient|signing-public`: export type (required)
+
+### `ende key import`
+Import recipient public key as alias.
+
+Options:
+- `--name <alias>`: recipient alias (required)
+- `--file <path>`: file containing age recipient key (required)
+
+### `ende key list`
+List local keys and recipient aliases.
+
+### `ende key use`
+Set default signer key ID for `encrypt`.
+
+Options:
+- `--name <id>`: key ID
+- positional arg `<id>` is also supported (`ende key use alice`)
+
+---
+
+## 6-2) recipient
+### `ende recipient add`
+Add recipient alias.
+
+Options:
+- `--alias <name>`: alias (required for local mode)
+- `--key <age1...>`: age recipient public key (required)
+- `--github <username>`: GitHub username (optional)
+- `--key-index <n>`: GitHub SSH key index to pin (default `0`)
+
+### `ende recipient show <alias>`
+Show recipient details.
+
+### `ende recipient rotate <alias>`
+Rotate recipient public key.
+
+Options:
+- `--key <age1...>`: new recipient public key (required)
+
+---
+
+## 6-3) encrypt / decrypt / verify
+### `ende encrypt`
+Encrypt + sign payload.
+
+Options:
+- `-t, --to <alias|github:user|age1...>`: recipient target(s), repeatable (required)
+- `-s, --sign-as <key-id>`: sender signing key ID (optional if default signer exists)
+- `-i, --in <path|->`: input (default `-` = stdin)
+- `-o, --out <path|->`: output (default `-` = stdout)
+
+### `ende decrypt`
+Verify + decrypt envelope.
+
+Options:
+- `-i, --in <path|->`: input (default `-`)
+- `-o, --out <path|->`: plaintext output (`--out -` must be explicit)
+- `--verify-required <bool>`: enforce signature verification (default `true`)
+
+### `ende verify`
+Verify signature without decrypting.
+
+Options:
+- `-i, --in <path|->`: input (default `-`)
+
+---
+
+## 7. Security Design Considerations
+
+- Trust root
+  - Local keyring with pinned keys is the default trust root
+  - GitHub username is convenience metadata, not a trust root
+
+- No custom crypto primitive implementation
+  - Uses `filippo.io/age`
+  - Avoids implementing custom cryptographic algorithms
+
+- Authentication + integrity
+  - Ed25519 signature is required
+  - Signature target is `ciphertext + canonical metadata (CBOR)`
+  - Verification is done before decryption for early rejection
+
+- Secure defaults
+  - `--sign-as` required in `encrypt` unless default signer is configured
+  - `verify-required=true` by default in `decrypt`
+  - Plaintext stdout blocked by default (`--out -` required)
+  - Private key file permission `0600` enforced
+
+- Operational safety
+  - Secrets are handled via file/stdin paths, not CLI secret arguments
+  - Reduces shell history leakage risk
+
+---
+
+## 8. Recommended Team Operations
+1. Standardize key ID naming conventions.
+2. Verify recipient fingerprints out-of-band during onboarding.
+3. Rotate keys periodically (`recipient rotate`).
+4. Add verify/decrypt regression checks in CI.
+
+---
+
+## 9. Auto-generated `--help` options
+For the latest options table and raw help output, see:
+- [CLI_HELP.md](/Users/kuma/Develop/opensource/ende/CLI_HELP.md)
