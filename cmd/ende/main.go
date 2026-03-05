@@ -1,15 +1,20 @@
 package main
 
 import (
+	"bufio"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"filippo.io/age"
 	"github.com/kuma/ende/internal/crypto"
+	"github.com/kuma/ende/internal/diag"
 	endeio "github.com/kuma/ende/internal/io"
 	"github.com/kuma/ende/internal/keyring"
 	"github.com/kuma/ende/internal/policy"
@@ -19,11 +24,18 @@ import (
 )
 
 func main() {
+	var debug bool
 	root := &cobra.Command{
 		Use:   "ende",
 		Short: "Ende securely encrypts secrets between developers",
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			if debug {
+				diag.SetEnabled(true)
+			}
+		},
 	}
-	root.AddCommand(newKeyCommand(), newRecipientCommand(), newSenderCommand(), newEncryptCommand(), newDecryptCommand(), newVerifyCommand())
+	root.PersistentFlags().BoolVar(&debug, "debug", false, "enable diagnostic logs to stderr")
+	root.AddCommand(newKeyCommand(), newRecipientCommand(), newSenderCommand(), newRegisterCommand(), newEncryptCommand(), newDecryptCommand(), newVerifyCommand())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -39,6 +51,10 @@ func newKeyCommand() *cobra.Command {
 
 func newKeygenCommand() *cobra.Command {
 	var name string
+	var setDefault bool
+	var exportPublic bool
+	var exportDir string
+	var exportPrefix string
 	cmd := &cobra.Command{
 		Use:   "keygen",
 		Short: "Generate X25519 recipient and Ed25519 signing key pair",
@@ -49,6 +65,7 @@ func newKeygenCommand() *cobra.Command {
 			if strings.TrimSpace(name) == "" {
 				return fmt.Errorf("--name is required")
 			}
+			diag.Debugf("keygen: start name=%s set_default=%v export_public=%v export_dir=%s", name, setDefault, exportPublic, exportDir)
 			store, err := keyring.Load()
 			if err != nil {
 				return err
@@ -89,15 +106,49 @@ func newKeygenCommand() *cobra.Command {
 			if err := store.AddSender(name, signPub, "local-key", "", true); err != nil {
 				return err
 			}
+			if setDefault {
+				if err := store.SetDefaultSigner(name); err != nil {
+					return err
+				}
+			}
 			if err := store.Save(); err != nil {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "generated key %s\nrecipient: %s\nsigning-public: %s\n", name, xid.Recipient().String(), signPub)
+			recipientPub := xid.Recipient().String()
+			shareToken, err := encodeShareToken(name, recipientPub, signPub)
+			if err != nil {
+				return err
+			}
+			if exportPublic {
+				prefix := strings.TrimSpace(exportPrefix)
+				if prefix == "" {
+					prefix = name
+				}
+				if err := os.MkdirAll(exportDir, 0o755); err != nil {
+					return fmt.Errorf("create export dir: %w", err)
+				}
+				recipientOut := filepath.Join(exportDir, prefix+".recipient.pub")
+				signingOut := filepath.Join(exportDir, prefix+".signing.pub")
+				if err := os.WriteFile(recipientOut, []byte(recipientPub+"\n"), 0o644); err != nil {
+					return fmt.Errorf("write recipient export: %w", err)
+				}
+				if err := os.WriteFile(signingOut, []byte(signPub+"\n"), 0o644); err != nil {
+					return fmt.Errorf("write signing export: %w", err)
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "exported recipient to %s\nexported signing-public to %s\n", recipientOut, signingOut)
+			}
+
+			diag.Debugf("keygen: completed name=%s", name)
+			fmt.Fprintf(cmd.OutOrStdout(), "generated key %s\nrecipient: %s\nsigning-public: %s\nshare: %s\n", name, xid.Recipient().String(), signPub, shareToken)
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "key id")
+	cmd.Flags().BoolVar(&setDefault, "set-default", true, "set generated key as default signer")
+	cmd.Flags().BoolVar(&exportPublic, "export-public", false, "export public keys to files")
+	cmd.Flags().StringVar(&exportDir, "export-dir", ".", "directory for exported public key files")
+	cmd.Flags().StringVar(&exportPrefix, "export-prefix", "", "filename prefix for exported files (defaults to --name)")
 	return cmd
 }
 
@@ -298,8 +349,94 @@ func newRecipientCommand() *cobra.Command {
 	return cmd
 }
 
+func newRegisterCommand() *cobra.Command {
+	var alias, recipientKey, signingPublic, share string
+	var force bool
+	cmd := &cobra.Command{
+		Use:     "register",
+		Short:   "Register recipient and trusted sender in one step",
+		Aliases: []string{"reg"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			store, err := keyring.Load()
+			if err != nil {
+				return err
+			}
+			if alias == "" && recipientKey == "" && signingPublic == "" && share == "" {
+				// Share-first interactive flow: paste token, optional alias override.
+				s, a, err := promptShareRegisterInput(cmd.InOrStdin(), cmd.ErrOrStderr())
+				if err != nil {
+					return err
+				}
+				share = s
+				if alias == "" {
+					alias = a
+				}
+			}
+			if share == "" && strings.HasPrefix(strings.TrimSpace(recipientKey), sharePrefix) {
+				share = recipientKey
+				recipientKey = ""
+			}
+			if share != "" {
+				p, err := decodeShareToken(share)
+				if err != nil {
+					return err
+				}
+				if alias == "" {
+					alias = p.ID
+				}
+				if alias == "" {
+					return fmt.Errorf("alias is required")
+				}
+				if _, err := age.ParseX25519Recipient(p.Recipient); err != nil {
+					return fmt.Errorf("invalid recipient in share token: %w", err)
+				}
+				if _, err := sign.ParsePublicKey(p.SigningPublic); err != nil {
+					return fmt.Errorf("invalid signing public key in share token: %w", err)
+				}
+				if err := store.AddRecipient(alias, p.Recipient, "register", p.ID, force); err != nil {
+					return err
+				}
+				if err := store.AddSender(alias, p.SigningPublic, "register", p.ID, force); err != nil {
+					return err
+				}
+				if err := store.Save(); err != nil {
+					return err
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "registered alias %s (recipient+trusted-sender)\n", alias)
+				return nil
+			}
+			if alias == "" || recipientKey == "" || signingPublic == "" {
+				return fmt.Errorf("--alias, --recipient-key, and --signing-public are required (or provide --share / interactive input)")
+			}
+			if _, err := age.ParseX25519Recipient(recipientKey); err != nil {
+				return fmt.Errorf("invalid recipient key: %w", err)
+			}
+			if _, err := sign.ParsePublicKey(signingPublic); err != nil {
+				return fmt.Errorf("invalid signing public key: %w", err)
+			}
+			if err := store.AddRecipient(alias, recipientKey, "register", "", force); err != nil {
+				return err
+			}
+			if err := store.AddSender(alias, signingPublic, "register", "", force); err != nil {
+				return err
+			}
+			if err := store.Save(); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "registered alias %s (recipient+trusted-sender)\n", alias)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&alias, "alias", "", "alias to register")
+	cmd.Flags().StringVar(&recipientKey, "recipient-key", "", "age recipient public key")
+	cmd.Flags().StringVar(&signingPublic, "signing-public", "", "Ed25519 signing public key (base64)")
+	cmd.Flags().StringVar(&share, "share", "", "share token from keygen output")
+	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing recipient/sender entries")
+	return cmd
+}
+
 func newRecipientAddCommand() *cobra.Command {
-	var alias, key, githubUser string
+	var alias, key, githubUser, share string
 	var keyIndex int
 	var force bool
 	cmd := &cobra.Command{
@@ -348,8 +485,51 @@ func newRecipientAddCommand() *cobra.Command {
 				return nil
 			}
 
+			if alias == "" && key == "" && share == "" {
+				// Interactive mode for simpler onboarding.
+				var err error
+				alias, key, err = promptRecipientInput(cmd.InOrStdin(), cmd.ErrOrStderr())
+				if err != nil {
+					return err
+				}
+			}
+
+			if share == "" && strings.HasPrefix(strings.TrimSpace(key), sharePrefix) {
+				share = key
+				key = ""
+			}
+			if share != "" {
+				p, err := decodeShareToken(share)
+				if err != nil {
+					return err
+				}
+				if alias == "" {
+					alias = p.ID
+				}
+				if alias == "" {
+					return fmt.Errorf("alias is required")
+				}
+				if _, err := age.ParseX25519Recipient(p.Recipient); err != nil {
+					return fmt.Errorf("invalid recipient in share token: %w", err)
+				}
+				if _, err := sign.ParsePublicKey(p.SigningPublic); err != nil {
+					return fmt.Errorf("invalid signing public key in share token: %w", err)
+				}
+				if err := store.AddRecipient(alias, p.Recipient, "share", p.ID, force); err != nil {
+					return err
+				}
+				if err := store.AddSender(alias, p.SigningPublic, "share", p.ID, force); err != nil {
+					return err
+				}
+				if err := store.Save(); err != nil {
+					return err
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "added recipient+trusted-sender alias %s via share token\n", alias)
+				return nil
+			}
+
 			if alias == "" || key == "" {
-				return fmt.Errorf("--alias and --key are required")
+				return fmt.Errorf("--alias and --key are required (or provide --share / interactive input)")
 			}
 			if _, err := age.ParseX25519Recipient(key); err != nil {
 				return fmt.Errorf("invalid age recipient: %w", err)
@@ -366,6 +546,7 @@ func newRecipientAddCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&alias, "alias", "", "recipient alias")
 	cmd.Flags().StringVar(&key, "key", "", "age recipient public key")
+	cmd.Flags().StringVar(&share, "share", "", "share token from keygen output")
 	cmd.Flags().StringVar(&githubUser, "github", "", "github username (optional resolver)")
 	cmd.Flags().IntVar(&keyIndex, "key-index", 0, "github ssh key index for pinning")
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing recipient alias")
@@ -510,11 +691,22 @@ func newEncryptCommand() *cobra.Command {
 	var tos []string
 	var signAs, in, out string
 	var textOut bool
+	var binaryOut bool
+	var prompt bool
 	cmd := &cobra.Command{
 		Use:   "encrypt",
 		Short: "Encrypt and sign secret payload",
 		Aliases: []string{
 			"enc",
+		},
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if textOut && binaryOut {
+				return fmt.Errorf("--text and --binary cannot be used together")
+			}
+			if binaryOut {
+				textOut = false
+			}
+			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(tos) == 0 {
@@ -553,9 +745,21 @@ func newEncryptCommand() *cobra.Command {
 				recipients = append(recipients, r)
 				hints = append(hints, hint)
 			}
-			plaintext, err := endeio.ReadInput(in)
-			if err != nil {
-				return err
+			var plaintext []byte
+			if prompt {
+				if in != "-" {
+					return fmt.Errorf("--prompt cannot be used with --in")
+				}
+				p, err := readPromptSecret(cmd.InOrStdin(), cmd.ErrOrStderr())
+				if err != nil {
+					return err
+				}
+				plaintext = p
+			} else {
+				plaintext, err = endeio.ReadInput(in)
+				if err != nil {
+					return err
+				}
 			}
 			envelope, err := crypto.Seal(plaintext, recipients, signAs, keyEntry.SignPublic, signPriv, hints)
 			if err != nil {
@@ -574,13 +778,16 @@ func newEncryptCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&signAs, "sign-as", "s", "", "local signing key id (optional if default signer is set)")
 	cmd.Flags().StringVarP(&in, "in", "i", "-", "input path or -")
 	cmd.Flags().StringVarP(&out, "out", "o", "-", "output path or -")
-	cmd.Flags().BoolVar(&textOut, "text", false, "output ASCII-armored envelope for copy/paste transport")
+	cmd.Flags().BoolVar(&textOut, "text", true, "output ASCII-armored envelope for copy/paste transport (default true)")
+	cmd.Flags().BoolVar(&binaryOut, "binary", false, "output raw binary envelope")
+	cmd.Flags().BoolVar(&prompt, "prompt", false, "prompt for secret value interactively")
 	return cmd
 }
 
 func newDecryptCommand() *cobra.Command {
 	var in, out string
 	var verifyRequired bool
+	var textOut bool
 	cmd := &cobra.Command{
 		Use:   "decrypt",
 		Short: "Verify and decrypt envelope",
@@ -622,9 +829,19 @@ func newDecryptCommand() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+		if textOut {
+			if out != "" && out != "-" {
+				return fmt.Errorf("--text-out cannot be used with file output")
+			}
+			out = "-"
+		}
+		return nil
+	}
 	cmd.Flags().StringVarP(&in, "in", "i", "-", "input path or -")
 	cmd.Flags().StringVarP(&out, "out", "o", "", "output plaintext path or - (explicit)")
 	cmd.Flags().BoolVar(&verifyRequired, "verify-required", true, "require signature verification")
+	cmd.Flags().BoolVar(&textOut, "text-out", false, "print decrypted plaintext to stdout")
 	return cmd
 }
 
@@ -723,4 +940,115 @@ func short(s string) string {
 		return s
 	}
 	return s[:12]
+}
+
+const sharePrefix = "ENDE-PUB-1:"
+
+type sharePayload struct {
+	Version       int    `json:"version"`
+	ID            string `json:"id"`
+	Recipient     string `json:"recipient"`
+	SigningPublic string `json:"signing_public"`
+}
+
+func encodeShareToken(id, recipient, signingPublic string) (string, error) {
+	p := sharePayload{
+		Version:       1,
+		ID:            strings.TrimSpace(id),
+		Recipient:     strings.TrimSpace(recipient),
+		SigningPublic: strings.TrimSpace(signingPublic),
+	}
+	b, err := json.Marshal(p)
+	if err != nil {
+		return "", fmt.Errorf("encode share token: %w", err)
+	}
+	return sharePrefix + base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+func decodeShareToken(token string) (*sharePayload, error) {
+	t := strings.TrimSpace(token)
+	if !strings.HasPrefix(t, sharePrefix) {
+		return nil, fmt.Errorf("invalid share token prefix")
+	}
+	raw := strings.TrimPrefix(t, sharePrefix)
+	b, err := base64.RawURLEncoding.DecodeString(raw)
+	if err != nil {
+		return nil, fmt.Errorf("decode share token: %w", err)
+	}
+	var p sharePayload
+	if err := json.Unmarshal(b, &p); err != nil {
+		return nil, fmt.Errorf("parse share token payload: %w", err)
+	}
+	if p.Version != 1 {
+		return nil, fmt.Errorf("unsupported share token version: %d", p.Version)
+	}
+	return &p, nil
+}
+
+func promptRecipientInput(in io.Reader, errw io.Writer) (alias string, keyOrShare string, err error) {
+	r := bufio.NewReader(in)
+	fmt.Fprint(errw, "alias: ")
+	alias, err = r.ReadString('\n')
+	if err != nil && err != io.EOF {
+		return "", "", fmt.Errorf("read alias: %w", err)
+	}
+	fmt.Fprint(errw, "key/share: ")
+	keyOrShare, err = r.ReadString('\n')
+	if err != nil && err != io.EOF {
+		return "", "", fmt.Errorf("read key/share: %w", err)
+	}
+	return strings.TrimSpace(alias), strings.TrimSpace(keyOrShare), nil
+}
+
+func readPromptSecret(in io.Reader, errw io.Writer) ([]byte, error) {
+	r := bufio.NewReader(in)
+	fmt.Fprint(errw, "secret> ")
+	v, err := r.ReadString('\n')
+	if err != nil && err != io.EOF {
+		return nil, fmt.Errorf("read prompt value: %w", err)
+	}
+	return []byte(strings.TrimRight(v, "\r\n")), nil
+}
+
+func promptRegisterInput(in io.Reader, errw io.Writer) (alias string, recipientOrShare string, signingPublic string, err error) {
+	r := bufio.NewReader(in)
+	fmt.Fprint(errw, "alias: ")
+	alias, err = r.ReadString('\n')
+	if err != nil && err != io.EOF {
+		return "", "", "", fmt.Errorf("read alias: %w", err)
+	}
+	fmt.Fprint(errw, "recipient key or share token: ")
+	recipientOrShare, err = r.ReadString('\n')
+	if err != nil && err != io.EOF {
+		return "", "", "", fmt.Errorf("read recipient/share: %w", err)
+	}
+	trimmed := strings.TrimSpace(recipientOrShare)
+	if strings.HasPrefix(trimmed, sharePrefix) {
+		return strings.TrimSpace(alias), trimmed, "", nil
+	}
+	fmt.Fprint(errw, "signing public key: ")
+	signingPublic, err = r.ReadString('\n')
+	if err != nil && err != io.EOF {
+		return "", "", "", fmt.Errorf("read signing public: %w", err)
+	}
+	return strings.TrimSpace(alias), trimmed, strings.TrimSpace(signingPublic), nil
+}
+
+func promptShareRegisterInput(in io.Reader, errw io.Writer) (share string, aliasOverride string, err error) {
+	r := bufio.NewReader(in)
+	fmt.Fprint(errw, "share token (ENDE-PUB-1:...): ")
+	share, err = r.ReadString('\n')
+	if err != nil && err != io.EOF {
+		return "", "", fmt.Errorf("read share token: %w", err)
+	}
+	share = strings.TrimSpace(share)
+	if share == "" {
+		return "", "", fmt.Errorf("share token is required")
+	}
+	fmt.Fprint(errw, "alias override (optional, Enter to use token id): ")
+	aliasOverride, err = r.ReadString('\n')
+	if err != nil && err != io.EOF {
+		return "", "", fmt.Errorf("read alias override: %w", err)
+	}
+	return share, strings.TrimSpace(aliasOverride), nil
 }

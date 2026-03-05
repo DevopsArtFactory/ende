@@ -17,33 +17,51 @@
 go build ./cmd/ende
 ```
 
+## Docker build
+Build with containerized Go toolchain (host env independent):
+```bash
+make vendor
+make docker-test
+make docker-build
+make docker-build-all
+```
+You can pin image:
+```bash
+make docker-build-all GO_DOCKER_IMAGE=golang:1.25
+```
+
 ## Quickstart
 1. Generate local key material:
 ```bash
-./ende key keygen --name alice
-./ende key keygen --name bob
-./ende key use --name alice
+./ende key keygen --name alice --export-public --export-dir .
+./ende key keygen --name bob --export-public --export-dir .
 ```
 
-2. Export Bob recipient key and register on Alice side:
+2. Alice shares `share:` token from keygen output to Bob.
+
+3. Bob registers interactively in one command (recipient + sender):
 ```bash
-./ende key export --name bob --type recipient > bob.agepub
-./ende recipient add --alias bob --key "$(cat bob.agepub)"
-./ende key export --name bob --type signing-public > bob.signpub
-./ende sender add --id bob --signing-public "$(cat bob.signpub)"
+./ende register
+# share token (ENDE-PUB-1:...): ENDE-PUB-1:...
+# alias override (optional, Enter to use token id):
 ```
 
-3. Encrypt + sign:
+4. Encrypt + sign (default: text to stdout):
 ```bash
-echo 'TOKEN=abc123' | ./ende encrypt -t bob -o secret.ende
+echo 'TOKEN=abc123' | ./ende encrypt -t bob
 ```
 
-3-1. Text-safe transport (copy/paste over chat/email):
+4-1. Save text output to file (optional):
 ```bash
 echo 'TOKEN=abc123' | ./ende encrypt -t bob --text -o secret.txt
 ```
 
-4. Verify and decrypt:
+4-2. Raw binary output (optional):
+```bash
+echo 'TOKEN=abc123' | ./ende encrypt -t bob --binary -o secret.ende
+```
+
+5. Verify and decrypt:
 ```bash
 ./ende verify -i secret.ende
 ./ende decrypt -i secret.ende -o decrypted.txt
@@ -53,6 +71,7 @@ Text envelope input is also supported:
 ```bash
 ./ende verify -i secret.txt
 ./ende decrypt -i secret.txt -o decrypted.txt
+./ende decrypt -i secret.txt --text-out
 ```
 
 ## Shortcuts
@@ -69,6 +88,13 @@ Text envelope input is also supported:
 - `~/.config/ende/keyring.yaml`
 - `~/.config/ende/keys/*.agekey`
 - `~/.config/ende/keys/*.signkey`
+
+Override location (for virtual env/project-local use):
+```bash
+ENDE_HOME=.ende ./dist/ende key keygen --name alice
+# or
+ENDE_CONFIG_DIR=.ende ./dist/ende key keygen --name alice
+```
 
 ## GitHub recipient mode
 GitHub mode is optional and pin-based:

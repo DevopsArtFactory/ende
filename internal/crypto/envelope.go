@@ -165,12 +165,16 @@ func EncodeTextEnvelope(envelopeBytes []byte) []byte {
 
 func decodeArmoredEnvelope(input []byte) ([]byte, bool, error) {
 	s := strings.TrimSpace(string(input))
-	if !strings.HasPrefix(s, armorBegin) {
+	beginIdx := strings.Index(s, armorBegin)
+	if beginIdx < 0 {
 		return nil, false, nil
 	}
-	if !strings.Contains(s, armorEnd) {
+	s = s[beginIdx:]
+	endIdx := strings.Index(s, armorEnd)
+	if endIdx < 0 {
 		return nil, false, fmt.Errorf("decode envelope: missing armor end marker")
 	}
+	s = s[:endIdx+len(armorEnd)]
 	lines := strings.Split(s, "\n")
 	var payload strings.Builder
 	inBody := false

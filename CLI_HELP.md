@@ -8,6 +8,7 @@ Auto-generated from command --help outputs on 2026-03-05.
 
 | Flag | Description |
 |---|---|
+| `--debug` | enable diagnostic logs to stderr |
 | `-h, --help` | help for ende |
 
 ### ende key
@@ -15,13 +16,19 @@ Auto-generated from command --help outputs on 2026-03-05.
 | Flag | Description |
 |---|---|
 | `-h, --help` | help for key |
+| `--debug` | enable diagnostic logs to stderr |
 
 ### ende key keygen
 
 | Flag | Description |
 |---|---|
+| `--export-dir string` | directory for exported public key files (default ".") |
+| `--export-prefix string` | filename prefix for exported files (defaults to --name) |
+| `--export-public` | export public keys to files |
 | `-h, --help` | help for keygen |
 | `--name string` | key id |
+| `--set-default` | set generated key as default signer (default true) |
+| `--debug` | enable diagnostic logs to stderr |
 
 ### ende key export
 
@@ -30,6 +37,7 @@ Auto-generated from command --help outputs on 2026-03-05.
 | `-h, --help` | help for export |
 | `--name string` | key id |
 | `--type string` | recipient\|signing-public |
+| `--debug` | enable diagnostic logs to stderr |
 
 ### ende key import
 
@@ -38,12 +46,14 @@ Auto-generated from command --help outputs on 2026-03-05.
 | `--file string` | file with age recipient |
 | `-h, --help` | help for import |
 | `--name string` | recipient alias |
+| `--debug` | enable diagnostic logs to stderr |
 
 ### ende key list
 
 | Flag | Description |
 |---|---|
 | `-h, --help` | help for list |
+| `--debug` | enable diagnostic logs to stderr |
 
 ### ende key use
 
@@ -51,12 +61,14 @@ Auto-generated from command --help outputs on 2026-03-05.
 |---|---|
 | `-h, --help` | help for use |
 | `--name string` | key id |
+| `--debug` | enable diagnostic logs to stderr |
 
 ### ende recipient
 
 | Flag | Description |
 |---|---|
 | `-h, --help` | help for recipient |
+| `--debug` | enable diagnostic logs to stderr |
 
 ### ende recipient add
 
@@ -68,12 +80,15 @@ Auto-generated from command --help outputs on 2026-03-05.
 | `-h, --help` | help for add |
 | `--key string` | age recipient public key |
 | `--key-index int` | github ssh key index for pinning |
+| `--share string` | share token from keygen output |
+| `--debug` | enable diagnostic logs to stderr |
 
 ### ende recipient show
 
 | Flag | Description |
 |---|---|
 | `-h, --help` | help for show |
+| `--debug` | enable diagnostic logs to stderr |
 
 ### ende recipient rotate
 
@@ -81,12 +96,14 @@ Auto-generated from command --help outputs on 2026-03-05.
 |---|---|
 | `-h, --help` | help for rotate |
 | `--key string` | new age recipient public key |
+| `--debug` | enable diagnostic logs to stderr |
 
 ### ende sender
 
 | Flag | Description |
 |---|---|
 | `-h, --help` | help for sender |
+| `--debug` | enable diagnostic logs to stderr |
 
 ### ende sender add
 
@@ -97,12 +114,14 @@ Auto-generated from command --help outputs on 2026-03-05.
 | `-h, --help` | help for add |
 | `--id string` | sender id to trust |
 | `--signing-public string` | sender Ed25519 public key (base64) |
+| `--debug` | enable diagnostic logs to stderr |
 
 ### ende sender show
 
 | Flag | Description |
 |---|---|
 | `-h, --help` | help for show |
+| `--debug` | enable diagnostic logs to stderr |
 
 ### ende sender rotate
 
@@ -110,23 +129,40 @@ Auto-generated from command --help outputs on 2026-03-05.
 |---|---|
 | `-h, --help` | help for rotate |
 | `--signing-public string` | new sender Ed25519 public key (base64) |
+| `--debug` | enable diagnostic logs to stderr |
 
 ### ende sender list
 
 | Flag | Description |
 |---|---|
 | `-h, --help` | help for list |
+| `--debug` | enable diagnostic logs to stderr |
+
+### ende register
+
+| Flag | Description |
+|---|---|
+| `--alias string` | alias to register |
+| `--force` | overwrite existing recipient/sender entries |
+| `-h, --help` | help for register |
+| `--recipient-key string` | age recipient public key |
+| `--share string` | share token from keygen output |
+| `--signing-public string` | Ed25519 signing public key (base64) |
+| `--debug` | enable diagnostic logs to stderr |
 
 ### ende encrypt
 
 | Flag | Description |
 |---|---|
+| `--binary` | output raw binary envelope |
 | `-h, --help` | help for encrypt |
 | `-i, --in string` | input path or - (default "-") |
 | `-o, --out string` | output path or - (default "-") |
+| `--prompt` | prompt for secret value interactively |
 | `-s, --sign-as string` | local signing key id (optional if default signer is set) |
-| `--text` | output ASCII-armored envelope for copy/paste transport |
+| `--text` | output ASCII-armored envelope for copy/paste transport (default true) (default true) |
 | `-t, --to strings` | recipient alias, github:user, or age1... public key |
+| `--debug` | enable diagnostic logs to stderr |
 
 ### ende decrypt
 
@@ -135,7 +171,9 @@ Auto-generated from command --help outputs on 2026-03-05.
 | `-h, --help` | help for decrypt |
 | `-i, --in string` | input path or - (default "-") |
 | `-o, --out string` | output plaintext path or - (explicit) |
+| `--text-out` | print decrypted plaintext to stdout |
 | `--verify-required` | require signature verification (default true) |
+| `--debug` | enable diagnostic logs to stderr |
 
 ### ende verify
 
@@ -143,6 +181,7 @@ Auto-generated from command --help outputs on 2026-03-05.
 |---|---|
 | `-h, --help` | help for verify |
 | `-i, --in string` | input path or - (default "-") |
+| `--debug` | enable diagnostic logs to stderr |
 
 ## Raw Help Output
 
@@ -161,11 +200,13 @@ Available Commands:
   help        Help about any command
   key         Manage local keys
   recipient   Manage recipient aliases
+  register    Register recipient and trusted sender in one step
   sender      Manage trusted sender signing keys
   verify      Verify signature without decrypting
 
 Flags:
-  -h, --help   help for ende
+      --debug   enable diagnostic logs to stderr
+  -h, --help    help for ende
 
 Use "ende [command] --help" for more information about a command.
 ```
@@ -191,6 +232,9 @@ Available Commands:
 Flags:
   -h, --help   help for key
 
+Global Flags:
+      --debug   enable diagnostic logs to stderr
+
 Use "ende key [command] --help" for more information about a command.
 ```
 
@@ -206,8 +250,15 @@ Aliases:
   keygen, kg
 
 Flags:
-  -h, --help          help for keygen
-      --name string   key id
+      --export-dir string      directory for exported public key files (default ".")
+      --export-prefix string   filename prefix for exported files (defaults to --name)
+      --export-public          export public keys to files
+  -h, --help                   help for keygen
+      --name string            key id
+      --set-default            set generated key as default signer (default true)
+
+Global Flags:
+      --debug   enable diagnostic logs to stderr
 ```
 
 ### ende key export --help
@@ -222,6 +273,9 @@ Flags:
   -h, --help          help for export
       --name string   key id
       --type string   recipient|signing-public
+
+Global Flags:
+      --debug   enable diagnostic logs to stderr
 ```
 
 ### ende key import --help
@@ -236,6 +290,9 @@ Flags:
       --file string   file with age recipient
   -h, --help          help for import
       --name string   recipient alias
+
+Global Flags:
+      --debug   enable diagnostic logs to stderr
 ```
 
 ### ende key list --help
@@ -251,6 +308,9 @@ Aliases:
 
 Flags:
   -h, --help   help for list
+
+Global Flags:
+      --debug   enable diagnostic logs to stderr
 ```
 
 ### ende key use --help
@@ -264,6 +324,9 @@ Usage:
 Flags:
   -h, --help          help for use
       --name string   key id
+
+Global Flags:
+      --debug   enable diagnostic logs to stderr
 ```
 
 ### ende recipient --help
@@ -285,6 +348,9 @@ Available Commands:
 Flags:
   -h, --help   help for recipient
 
+Global Flags:
+      --debug   enable diagnostic logs to stderr
+
 Use "ende recipient [command] --help" for more information about a command.
 ```
 
@@ -303,6 +369,10 @@ Flags:
   -h, --help            help for add
       --key string      age recipient public key
       --key-index int   github ssh key index for pinning
+      --share string    share token from keygen output
+
+Global Flags:
+      --debug   enable diagnostic logs to stderr
 ```
 
 ### ende recipient show --help
@@ -315,6 +385,9 @@ Usage:
 
 Flags:
   -h, --help   help for show
+
+Global Flags:
+      --debug   enable diagnostic logs to stderr
 ```
 
 ### ende recipient rotate --help
@@ -328,6 +401,9 @@ Usage:
 Flags:
   -h, --help         help for rotate
       --key string   new age recipient public key
+
+Global Flags:
+      --debug   enable diagnostic logs to stderr
 ```
 
 ### ende sender --help
@@ -350,6 +426,9 @@ Available Commands:
 Flags:
   -h, --help   help for sender
 
+Global Flags:
+      --debug   enable diagnostic logs to stderr
+
 Use "ende sender [command] --help" for more information about a command.
 ```
 
@@ -367,6 +446,9 @@ Flags:
   -h, --help                    help for add
       --id string               sender id to trust
       --signing-public string   sender Ed25519 public key (base64)
+
+Global Flags:
+      --debug   enable diagnostic logs to stderr
 ```
 
 ### ende sender show --help
@@ -379,6 +461,9 @@ Usage:
 
 Flags:
   -h, --help   help for show
+
+Global Flags:
+      --debug   enable diagnostic logs to stderr
 ```
 
 ### ende sender rotate --help
@@ -392,6 +477,9 @@ Usage:
 Flags:
   -h, --help                    help for rotate
       --signing-public string   new sender Ed25519 public key (base64)
+
+Global Flags:
+      --debug   enable diagnostic logs to stderr
 ```
 
 ### ende sender list --help
@@ -407,6 +495,32 @@ Aliases:
 
 Flags:
   -h, --help   help for list
+
+Global Flags:
+      --debug   enable diagnostic logs to stderr
+```
+
+### ende register --help
+
+```text
+Register recipient and trusted sender in one step
+
+Usage:
+  ende register [flags]
+
+Aliases:
+  register, reg
+
+Flags:
+      --alias string            alias to register
+      --force                   overwrite existing recipient/sender entries
+  -h, --help                    help for register
+      --recipient-key string    age recipient public key
+      --share string            share token from keygen output
+      --signing-public string   Ed25519 signing public key (base64)
+
+Global Flags:
+      --debug   enable diagnostic logs to stderr
 ```
 
 ### ende encrypt --help
@@ -421,12 +535,17 @@ Aliases:
   encrypt, enc
 
 Flags:
+      --binary           output raw binary envelope
   -h, --help             help for encrypt
   -i, --in string        input path or - (default "-")
   -o, --out string       output path or - (default "-")
+      --prompt           prompt for secret value interactively
   -s, --sign-as string   local signing key id (optional if default signer is set)
-      --text             output ASCII-armored envelope for copy/paste transport
+      --text             output ASCII-armored envelope for copy/paste transport (default true) (default true)
   -t, --to strings       recipient alias, github:user, or age1... public key
+
+Global Flags:
+      --debug   enable diagnostic logs to stderr
 ```
 
 ### ende decrypt --help
@@ -444,7 +563,11 @@ Flags:
   -h, --help              help for decrypt
   -i, --in string         input path or - (default "-")
   -o, --out string        output plaintext path or - (explicit)
+      --text-out          print decrypted plaintext to stdout
       --verify-required   require signature verification (default true)
+
+Global Flags:
+      --debug   enable diagnostic logs to stderr
 ```
 
 ### ende verify --help
@@ -461,4 +584,7 @@ Aliases:
 Flags:
   -h, --help        help for verify
   -i, --in string   input path or - (default "-")
+
+Global Flags:
+      --debug   enable diagnostic logs to stderr
 ```

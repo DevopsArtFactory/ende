@@ -20,10 +20,11 @@ Each developer generates their local keys.
 
 Example:
 ```bash
-./ende key keygen --name alice
-./ende key keygen --name bob
-./ende key use --name alice
+./ende key keygen --name alice --export-public --export-dir .
+./ende key keygen --name bob --export-public --export-dir .
 ```
+
+`keygen` output includes a `share:` token. Copy that token to the other user.
 
 Generated assets:
 - `~/.config/ende/keyring.yaml`
@@ -37,16 +38,17 @@ Generated assets:
 ### 3-1) Register recipient (Bob) public key
 Bob exports his recipient public key; Alice stores it as an alias.
 
-On Bob's side:
-```bash
-./ende key export --name bob --type recipient
-./ende key export --name bob --type signing-public
-```
-
 On Alice's side:
 ```bash
-./ende recipient add --alias bob --key "age1..."
-./ende sender add --id bob --signing-public "<base64-ed25519-public>"
+./ende key keygen --name alice
+# copy `share: ENDE-PUB-1:...`
+```
+
+On Bob's side (share-first interactive onboarding):
+```bash
+./ende register
+# share token (ENDE-PUB-1:...): ENDE-PUB-1:...
+# alias override (optional, Enter to use token id):
 ```
 
 ### 3-2) Encrypt + sign secret
@@ -126,6 +128,7 @@ Behavior:
 - `ende k` = `ende key`
 - `ende rcpt` = `ende recipient`
 - `ende snd` = `ende sender`
+- `ende reg` = `ende register`
 - `ende key kg` = `ende key keygen`
 - `ende key ls` = `ende key list`
 
@@ -135,6 +138,10 @@ Generate local key material.
 
 Options:
 - `--name <id>`: key ID (required)
+- `--set-default <bool>`: set this key as default signer (default `true`)
+- `--export-public`: export recipient/signing public keys to files
+- `--export-dir <path>`: directory for exported public key files
+- `--export-prefix <name>`: file prefix for exported files (default: `--name`)
 
 ### `ende key export`
 Export public key material.
@@ -169,6 +176,7 @@ Add recipient alias.
 Options:
 - `--alias <name>`: alias (required for local mode)
 - `--key <age1...>`: age recipient public key (required)
+- `--share <token>`: share token (`ENDE-PUB-1:...`) for recipient+sender auto registration
 - `--github <username>`: GitHub username (optional)
 - `--key-index <n>`: GitHub SSH key index to pin (default `0`)
 
@@ -192,7 +200,9 @@ Options:
 - `-s, --sign-as <key-id>`: sender signing key ID (optional if default signer exists)
 - `-i, --in <path|->`: input (default `-` = stdin)
 - `-o, --out <path|->`: output (default `-` = stdout)
-- `--text`: output ASCII-armored envelope for copy/paste transport
+- `--text`: output ASCII-armored envelope (default `true`)
+- `--binary`: output raw binary envelope
+- `--prompt`: prompt secret input interactively
 
 ### `ende decrypt`
 Verify + decrypt envelope.
@@ -201,6 +211,7 @@ Options:
 - `-i, --in <path|->`: input (default `-`)
 - `-o, --out <path|->`: plaintext output (`--out -` must be explicit)
 - `--verify-required <bool>`: enforce signature verification (default `true`)
+- `--text-out`: print decrypted plaintext to stdout
 
 ### `ende verify`
 Verify signature without decrypting.
@@ -231,6 +242,19 @@ Options:
 
 ### `ende sender list`
 List trusted senders.
+
+---
+
+## 6-5) register
+### `ende register`
+Register recipient + trusted sender in one step.
+
+Options:
+- `--alias <name>`: alias to register
+- `--share <token>`: share token (`ENDE-PUB-1:...`) for one-step registration
+- `--recipient-key <age1...>`: recipient key for manual one-step registration
+- `--signing-public <base64>`: sender signing public key for manual one-step registration
+- `--force`: overwrite existing recipient/sender entries
 
 ---
 

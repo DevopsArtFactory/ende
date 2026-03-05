@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/kuma/ende/internal/diag"
 	"gopkg.in/yaml.v3"
 )
 
@@ -53,13 +54,43 @@ type Defaults struct {
 }
 
 func DefaultPaths() (configDir, ringPath, keysDir string, err error) {
+	if v := strings.TrimSpace(os.Getenv("ENDE_CONFIG_DIR")); v != "" {
+		configDir = v
+		ringPath = filepath.Join(configDir, "keyring.yaml")
+		keysDir = filepath.Join(configDir, "keys")
+		diag.Debugf("keyring.DefaultPaths: using ENDE_CONFIG_DIR=%s", configDir)
+		return configDir, ringPath, keysDir, nil
+	}
+	if v := strings.TrimSpace(os.Getenv("ENDE_HOME")); v != "" {
+		configDir = v
+		ringPath = filepath.Join(configDir, "keyring.yaml")
+		keysDir = filepath.Join(configDir, "keys")
+		diag.Debugf("keyring.DefaultPaths: using ENDE_HOME=%s", configDir)
+		return configDir, ringPath, keysDir, nil
+	}
+	if v := strings.TrimSpace(os.Getenv("VIRTUAL_ENV")); v != "" {
+		configDir = filepath.Join(v, ".ende")
+		ringPath = filepath.Join(configDir, "keyring.yaml")
+		keysDir = filepath.Join(configDir, "keys")
+		diag.Debugf("keyring.DefaultPaths: using VIRTUAL_ENV-derived dir=%s", configDir)
+		return configDir, ringPath, keysDir, nil
+	}
+	if v := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME")); v != "" {
+		configDir = filepath.Join(v, "ende")
+		ringPath = filepath.Join(configDir, "keyring.yaml")
+		keysDir = filepath.Join(configDir, "keys")
+		diag.Debugf("keyring.DefaultPaths: using XDG_CONFIG_HOME=%s", configDir)
+		return configDir, ringPath, keysDir, nil
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
+		diag.Debugf("keyring.DefaultPaths: resolve home dir failed: %v", err)
 		return "", "", "", fmt.Errorf("resolve home dir: %w", err)
 	}
 	configDir = filepath.Join(home, ".config", "ende")
 	ringPath = filepath.Join(configDir, "keyring.yaml")
 	keysDir = filepath.Join(configDir, "keys")
+	diag.Debugf("keyring.DefaultPaths: config_dir=%s ring_path=%s keys_dir=%s", configDir, ringPath, keysDir)
 	return configDir, ringPath, keysDir, nil
 }
 
@@ -68,16 +99,21 @@ func EnsureDirs() error {
 	if err != nil {
 		return err
 	}
+	diag.Debugf("keyring.EnsureDirs: ensure config dir %s", configDir)
 	if err := os.MkdirAll(configDir, 0o700); err != nil {
+		diag.Debugf("keyring.EnsureDirs: create config dir failed: %v", err)
 		return fmt.Errorf("create config dir: %w", err)
 	}
+	diag.Debugf("keyring.EnsureDirs: ensure keys dir %s", keysDir)
 	if err := os.MkdirAll(keysDir, 0o700); err != nil {
+		diag.Debugf("keyring.EnsureDirs: create keys dir failed: %v", err)
 		return fmt.Errorf("create keys dir: %w", err)
 	}
 	return nil
 }
 
 func Load() (*Store, error) {
+	diag.Debugf("keyring.Load: start")
 	if err := EnsureDirs(); err != nil {
 		return nil, err
 	}
@@ -85,15 +121,20 @@ func Load() (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	st := &Store{Path: ringPath, Data: File{Recipients: map[string]RecipientEntry{}, Keys: map[string]KeyEntry{}}}
+	st := &Store{Path: ringPath, Data: File{Recipients: map[string]RecipientEntry{}, Keys: map[string]KeyEntry{}, Senders: map[string]SenderEntry{}}}
+	diag.Debugf("keyring.Load: reading keyring path=%s", ringPath)
 	b, err := os.ReadFile(ringPath)
 	if err != nil {
 		if os.IsNotExist(err) {
+			diag.Debugf("keyring.Load: keyring not found, returning empty in-memory store")
 			return st, nil
 		}
+		diag.Debugf("keyring.Load: read failed: %v", err)
 		return nil, fmt.Errorf("read keyring: %w", err)
 	}
+	diag.Debugf("keyring.Load: bytes=%d", len(b))
 	if err := yaml.Unmarshal(b, &st.Data); err != nil {
+		diag.Debugf("keyring.Load: yaml parse failed: %v", err)
 		return nil, fmt.Errorf("parse keyring yaml: %w", err)
 	}
 	if st.Data.Recipients == nil {
@@ -105,17 +146,22 @@ func Load() (*Store, error) {
 	if st.Data.Senders == nil {
 		st.Data.Senders = map[string]SenderEntry{}
 	}
+	diag.Debugf("keyring.Load: loaded keys=%d recipients=%d senders=%d", len(st.Data.Keys), len(st.Data.Recipients), len(st.Data.Senders))
 	return st, nil
 }
 
 func (s *Store) Save() error {
 	b, err := yaml.Marshal(&s.Data)
 	if err != nil {
+		diag.Debugf("keyring.Save: yaml marshal failed: %v", err)
 		return fmt.Errorf("marshal keyring yaml: %w", err)
 	}
+	diag.Debugf("keyring.Save: writing path=%s bytes=%d", s.Path, len(b))
 	if err := os.WriteFile(s.Path, b, 0o600); err != nil {
+		diag.Debugf("keyring.Save: write failed: %v", err)
 		return fmt.Errorf("write keyring: %w", err)
 	}
+	diag.Debugf("keyring.Save: success")
 	return nil
 }
 
@@ -183,6 +229,9 @@ func (s *Store) AddSender(id, signPublic, source, username string, force bool) e
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return fmt.Errorf("sender id is required")
+	}
+	if s.Data.Senders == nil {
+		s.Data.Senders = map[string]SenderEntry{}
 	}
 	if _, exists := s.Data.Senders[id]; exists && !force {
 		return fmt.Errorf("sender id %s already exists; use --force to overwrite", id)

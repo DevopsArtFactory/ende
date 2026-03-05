@@ -7,6 +7,9 @@ PKG_DIR := $(DIST_DIR)/packages
 
 GO ?= go
 CGO_ENABLED ?= 0
+DOCKER ?= docker
+GO_DOCKER_IMAGE ?= golang:1.25
+DOCKER_GOFLAGS ?= -mod=vendor
 
 VERSION ?= dev
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
@@ -21,7 +24,7 @@ PLATFORMS := \
 	windows/amd64 \
 	windows/arm64
 
-.PHONY: help build build-all package checksums test clean
+.PHONY: help build build-all package checksums test clean vendor docker-test docker-build docker-build-all
 
 help:
 	@echo "Targets:"
@@ -30,6 +33,10 @@ help:
 	@echo "  make package    Create release archives and checksums"
 	@echo "  make checksums  Generate SHA256SUMS for archives"
 	@echo "  make test       Run unit tests"
+	@echo "  make vendor     Refresh vendored dependencies"
+	@echo "  make docker-test      Run tests in Docker"
+	@echo "  make docker-build     Build current OS/ARCH in Docker"
+	@echo "  make docker-build-all Cross-build all targets in Docker"
 	@echo "  make clean      Remove build artifacts"
 
 build:
@@ -82,6 +89,40 @@ checksums:
 
 test:
 	$(GO) test ./...
+
+vendor:
+	$(GO) mod vendor
+
+docker-test:
+	$(DOCKER) run --rm \
+		-v "$(CURDIR)":/src \
+		-w /src \
+		$(GO_DOCKER_IMAGE) \
+		sh -lc 'set -eu; export PATH="$$PATH:/usr/local/go/bin"; command -v go >/dev/null; go version; test -d vendor; GOFLAGS="$(DOCKER_GOFLAGS)" go test ./...'
+
+docker-build:
+	$(DOCKER) run --rm \
+		-v "$(CURDIR)":/src \
+		-w /src \
+		-e CGO_ENABLED=$(CGO_ENABLED) \
+		$(GO_DOCKER_IMAGE) \
+		sh -lc 'set -eu; export PATH="$$PATH:/usr/local/go/bin"; command -v go >/dev/null; go version; test -d vendor; mkdir -p $(DIST_DIR); GOFLAGS="$(DOCKER_GOFLAGS)" go build -ldflags "$(LDFLAGS)" -o $(DIST_DIR)/$(APP_NAME) $(PKG)'
+
+docker-build-all:
+	$(DOCKER) run --rm \
+		-v "$(CURDIR)":/src \
+		-w /src \
+		-e CGO_ENABLED=$(CGO_ENABLED) \
+		$(GO_DOCKER_IMAGE) \
+		sh -lc 'set -eu; export PATH="$$PATH:/usr/local/go/bin"; command -v go >/dev/null; go version; test -d vendor; mkdir -p $(DIST_DIR); \
+		for platform in $(PLATFORMS); do \
+			os=$${platform%/*}; \
+			arch=$${platform#*/}; \
+			out="$(DIST_DIR)/$(APP_NAME)-$${os}-$${arch}"; \
+			if [ "$$os" = "windows" ]; then out="$$out.exe"; fi; \
+			echo "Building $$os/$$arch -> $$out"; \
+			GOOS=$$os GOARCH=$$arch GOFLAGS="$(DOCKER_GOFLAGS)" go build -ldflags "$(LDFLAGS)" -o $$out $(PKG); \
+		done'
 
 clean:
 	rm -rf $(DIST_DIR)
