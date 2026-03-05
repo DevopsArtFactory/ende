@@ -9,11 +9,31 @@ Ende is a CLI tool for secure developer-to-developer secret exchange, implementi
 - **Signature**: Ed25519 - sender authentication and integrity verification
 - **Trust Root**: Local keyring (TOFU model)
 - **Envelope Structure**: CBOR serialization + signature + ciphertext
+- **Share Token**: `ENDE-PUB-1:` prefixed JSON+base64url token for key exchange
 
 ### Data Flow
 ```
 Plaintext → Age Encryption → CBOR Metadata → Ed25519 Signature → Envelope Packaging
 Envelope → Signature Verification → Age Decryption → Plaintext
+```
+
+### Code Structure (refactored)
+```
+cmd/ende/
+  ├── root.go          # CLI entrypoint, version, debug flag
+  ├── key_cmd.go       # keygen, export, import, list, use, share
+  ├── crypto_cmd.go    # encrypt, decrypt, verify + helpers
+  ├── parties_cmd.go   # recipient, sender, register, unregister
+  ├── prompt.go        # Interactive input helpers
+  └── share.go         # Share token encode/decode
+internal/
+  ├── crypto/          # Envelope seal/open/verify (age + CBOR + Ed25519)
+  ├── sign/            # Ed25519 key generation, sign, verify
+  ├── keyring/         # YAML-based keyring store (recipients, keys, senders)
+  ├── policy/          # File permission + plaintext output policy
+  ├── io/              # File/stdin read, file/stdout write
+  ├── diag/            # Debug logging (ENDE_DEBUG env)
+  └── resolver/github/ # GitHub SSH key lookup for TOFU pinning
 ```
 
 ---
@@ -65,24 +85,22 @@ Envelope → Signature Verification → Age Decryption → Plaintext
 
 ## 3. Security Vulnerabilities and Improvements
 
-### 3.1 🔴 HIGH: Missing Key Rotation Mechanism
+### 3.1 🟡 MEDIUM (downgraded): Key Rotation Mechanism
 
-**Issue:**
-- `recipient rotate`, `sender rotate` commands exist but lack implementation
-- Unclear response procedure for key compromise
-- No mechanism to re-encrypt data encrypted with old keys
+**Status:** `recipient rotate` and `sender rotate` commands are now implemented. They update the public key and fingerprint in the local keyring.
 
-**Impact:**
-- All past messages exposed if key is compromised
-- Data encrypted with old keys becomes inaccessible after key rotation
+**Remaining Gaps:**
+- No re-encryption tool for envelopes encrypted with old keys
+- No key revocation list
+- No rotation history tracking
 
 **Recommendations:**
 ```go
-// Required features for key rotation
-1. Generate and register new keys
-2. Track envelopes encrypted with old keys
-3. Provide re-encryption tool
-4. Key revocation policy (revocation list)
+// Still needed:
+1. Track envelopes encrypted with old keys
+2. Provide batch re-encryption tool
+3. Key revocation policy (revocation list)
+4. Rotation audit trail
 ```
 
 ### 3.2 🔴 HIGH: Missing Key Backup and Recovery Mechanism
@@ -263,10 +281,24 @@ type DecryptError struct {
 }
 ```
 
-### 4.2 Insufficient Test Coverage
-- No tests for GitHub resolver
-- No tests for key rotation logic
-- Insufficient edge case testing
+### 4.2 Test Coverage (improved)
+Current coverage after adding tests:
+
+| Package | Coverage |
+|---------|----------|
+| internal/sign | 93.8% |
+| internal/io | 92.3% |
+| internal/policy | 91.7% |
+| internal/diag | 80.0% |
+| internal/crypto | 78.4% |
+| internal/resolver/github | 62.5% |
+| internal/keyring | 38.7% |
+| cmd/ende | 3.1% |
+
+Remaining gaps:
+- cmd/ende needs integration tests (keygen, register, encrypt, decrypt flow)
+- keyring Load/Save need tests with ENDE_CONFIG_DIR override
+- GitHub resolver network tests are skipped in short mode
 
 ### 4.3 Input Validation Needs Strengthening
 ```go

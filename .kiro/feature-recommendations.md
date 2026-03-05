@@ -1,9 +1,16 @@
 # Ende Feature Development Roadmap
 
+## Recent Progress
+- Key rotation commands (`recipient rotate`, `sender rotate`) are now implemented
+- `unregister` command added for removing recipient + sender entries
+- `key share` command added for printing share tokens of existing keys
+- CLI refactored from monolithic main.go into focused command files
+- Test coverage significantly improved across all internal packages
+
 ## 1. Core Security Features
 
-### 1.1 Key Rotation - HIGH PRIORITY
-**Current Status**: Commands exist but no actual implementation
+### 1.1 Key Rotation - MEDIUM PRIORITY (downgraded from HIGH)
+**Current Status**: `recipient rotate` and `sender rotate` are implemented. They update the public key and fingerprint in the local keyring. Missing: re-encryption tooling, revocation list, rotation history.
 
 **Implementation Proposal**:
 ```go

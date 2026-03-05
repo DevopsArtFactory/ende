@@ -193,6 +193,14 @@ func (s *Store) Recipient(alias string) (RecipientEntry, bool) {
 	return r, ok
 }
 
+func (s *Store) RemoveRecipient(alias string) bool {
+	if _, ok := s.Data.Recipients[alias]; !ok {
+		return false
+	}
+	delete(s.Data.Recipients, alias)
+	return true
+}
+
 func (s *Store) AllRecipientAliases() []string {
 	aliases := make([]string, 0, len(s.Data.Recipients))
 	for a := range s.Data.Recipients {
@@ -249,6 +257,14 @@ func (s *Store) AddSender(id, signPublic, source, username string, force bool) e
 func (s *Store) Sender(id string) (SenderEntry, bool) {
 	v, ok := s.Data.Senders[id]
 	return v, ok
+}
+
+func (s *Store) RemoveSender(id string) bool {
+	if _, ok := s.Data.Senders[id]; !ok {
+		return false
+	}
+	delete(s.Data.Senders, id)
+	return true
 }
 
 func (s *Store) AllSenderIDs() []string {

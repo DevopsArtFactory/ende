@@ -39,6 +39,11 @@ make docker-build-all GO_DOCKER_IMAGE=golang:1.25
 
 2. Alice shares `share:` token from keygen output to Bob.
 
+You can re-print a share token later:
+```bash
+./ende key share --name alice
+```
+
 3. Bob registers interactively in one command (recipient + sender):
 ```bash
 ./ende register
@@ -46,9 +51,19 @@ make docker-build-all GO_DOCKER_IMAGE=golang:1.25
 # alias override (optional, Enter to use token id):
 ```
 
+To remove a registered alias later:
+```bash
+./ende unregister alice
+```
+
 4. Encrypt + sign (default: text to stdout):
 ```bash
 echo 'TOKEN=abc123' | ./ende encrypt -t bob
+```
+
+4-0. Encrypt from file input:
+```bash
+./ende encrypt -t bob -f secrets.env -o secret.txt
 ```
 
 4-1. Save text output to file (optional):

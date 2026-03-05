@@ -199,6 +199,7 @@ recipient 키 교체
 - `-t, --to <alias|github:user|age1...>`: 수신자(복수 지정 가능, 필수)
 - `-s, --sign-as <key-id>`: 송신자 서명 키 ID (기본 송신자 설정 시 생략 가능)
 - `-i, --in <path|->`: 입력(기본 `-` = stdin)
+- `-f, --file <path>`: 입력 파일 경로(`--in` 별칭)
 - `-o, --out <path|->`: 출력(기본 `-` = stdout)
 - `--text`: ASCII armor 출력 (기본 `true`)
 - `--binary`: raw 바이너리 envelope 출력

@@ -199,6 +199,7 @@ Options:
 - `-t, --to <alias|github:user|age1...>`: recipient target(s), repeatable (required)
 - `-s, --sign-as <key-id>`: sender signing key ID (optional if default signer exists)
 - `-i, --in <path|->`: input (default `-` = stdin)
+- `-f, --file <path>`: input file path (alias of `--in`)
 - `-o, --out <path|->`: output (default `-` = stdout)
 - `--text`: output ASCII-armored envelope (default `true`)
 - `--binary`: output raw binary envelope

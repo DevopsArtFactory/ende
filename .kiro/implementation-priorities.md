@@ -1,5 +1,34 @@
 # Ende Implementation Priorities and Execution Plan
 
+## Recent Changes (since initial analysis)
+
+### Code Refactoring
+- `cmd/ende/main.go` split into 5 focused files:
+  - `root.go` - CLI entrypoint, version command, debug flag
+  - `key_cmd.go` - Key management (keygen, export, import, list, use, share)
+  - `crypto_cmd.go` - Encrypt/decrypt/verify + helpers (resolveRecipient, loadIdentities)
+  - `parties_cmd.go` - Recipient/sender/register/unregister commands
+  - `prompt.go` - Interactive input helpers
+  - `share.go` - Share token encode/decode
+
+### New Features Implemented
+- `ende key share` - Print share token for existing local key
+- `ende unregister <alias>` - Remove recipient + sender registration
+- `keyring.RemoveRecipient()` / `keyring.RemoveSender()` - Store removal methods
+- `--file` / `-f` flag on encrypt as alias for `--in`
+
+### Test Coverage Added
+| Package | Coverage | Tests Added |
+|---------|----------|-------------|
+| internal/sign | 93.8% | sign_test.go (keygen, sign/verify, invalid inputs, determinism) |
+| internal/io | 92.3% | io_test.go (file read/write, stdout, roundtrip, edge cases) |
+| internal/diag | 80.0% | diag_test.go (enable/disable, env parsing) |
+| internal/resolver/github | 62.5% | github_test.go (invalid input, SSH parsing, network tests) |
+| internal/keyring | 38.7% | Extended: remove, empty alias, sorted output, nil map |
+| cmd/ende | 3.1% | share_test.go, crypto_cmd_test.go (token encode/decode, helpers) |
+
+---
+
 ## Quick Wins (1-2 weeks)
 
 ### 1. Auto-fix Key File Permissions
