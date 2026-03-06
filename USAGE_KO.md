@@ -19,19 +19,31 @@ ende --version
 ## GitHub Release 바이너리 설치 (Linux / Windows)
 `vX.Y.Z`를 실제 태그로 바꿔서 사용하세요.
 
-Linux (amd64):
+Linux (아키텍처 자동 감지):
 ```bash
 VERSION=vX.Y.Z
-curl -fL "https://github.com/DevopsArtFactory/ende/releases/download/${VERSION}/ende-linux-amd64" -o ende
+ARCH="$(uname -m)"
+case "$ARCH" in
+  x86_64) ARCH="amd64" ;;
+  aarch64|arm64) ARCH="arm64" ;;
+  *) echo "Unsupported arch: $ARCH" >&2; exit 1 ;;
+esac
+curl -fL "https://github.com/DevopsArtFactory/ende/releases/download/${VERSION}/ende-linux-${ARCH}" -o ende
 chmod +x ende
 sudo mv ende /usr/local/bin/ende
 ende --version
 ```
 
-Windows (amd64, PowerShell):
+Windows (아키텍처 자동 감지, PowerShell):
 ```powershell
 $Version = "vX.Y.Z"
-Invoke-WebRequest -Uri "https://github.com/DevopsArtFactory/ende/releases/download/$Version/ende-windows-amd64.exe" -OutFile "ende.exe"
+$ArchRaw = [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLower()
+switch ($ArchRaw) {
+  "x64" { $Arch = "amd64" }
+  "arm64" { $Arch = "arm64" }
+  default { throw "Unsupported arch: $ArchRaw" }
+}
+Invoke-WebRequest -Uri "https://github.com/DevopsArtFactory/ende/releases/download/$Version/ende-windows-$Arch.exe" -OutFile "ende.exe"
 .\ende.exe --version
 ```
 
