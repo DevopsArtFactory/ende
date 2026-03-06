@@ -17,6 +17,42 @@
 go build ./cmd/ende
 ```
 
+## Install with Homebrew (tap)
+```bash
+brew tap DevopsArtFactory/ende https://github.com/DevopsArtFactory/homebrew-ende
+brew install ende
+```
+
+Upgrade:
+```bash
+brew update
+brew upgrade ende
+```
+
+Verify:
+```bash
+ende --version
+```
+
+## Install from GitHub Release (Linux / Windows)
+Replace `vX.Y.Z` with the release tag.
+
+Linux (amd64):
+```bash
+VERSION=vX.Y.Z
+curl -fL "https://github.com/DevopsArtFactory/ende/releases/download/${VERSION}/ende-linux-amd64" -o ende
+chmod +x ende
+sudo mv ende /usr/local/bin/ende
+ende --version
+```
+
+Windows (amd64, PowerShell):
+```powershell
+$Version = "vX.Y.Z"
+Invoke-WebRequest -Uri "https://github.com/DevopsArtFactory/ende/releases/download/$Version/ende-windows-amd64.exe" -OutFile "ende.exe"
+.\ende.exe --version
+```
+
 ## Docker build
 Build with containerized Go toolchain (host env independent):
 ```bash

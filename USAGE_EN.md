@@ -9,6 +9,32 @@ Core guarantees:
 - Local keyring is the trust root (GitHub username mode is optional)
 - Decrypt requires a **trusted sender pin** (`sender_key_id` + signing public key match)
 
+## Install (Homebrew tap)
+```bash
+brew tap DevopsArtFactory/ende https://github.com/DevopsArtFactory/homebrew-ende
+brew install ende
+ende --version
+```
+
+## Install from GitHub Release (Linux / Windows)
+Replace `vX.Y.Z` with the release tag.
+
+Linux (amd64):
+```bash
+VERSION=vX.Y.Z
+curl -fL "https://github.com/DevopsArtFactory/ende/releases/download/${VERSION}/ende-linux-amd64" -o ende
+chmod +x ende
+sudo mv ende /usr/local/bin/ende
+ende --version
+```
+
+Windows (amd64, PowerShell):
+```powershell
+$Version = "vX.Y.Z"
+Invoke-WebRequest -Uri "https://github.com/DevopsArtFactory/ende/releases/download/$Version/ende-windows-amd64.exe" -OutFile "ende.exe"
+.\ende.exe --version
+```
+
 ---
 
 ## 2. Initial Setup (One-time per user)

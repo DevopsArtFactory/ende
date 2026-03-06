@@ -9,6 +9,32 @@
 - 로컬 keyring을 신뢰 루트로 사용 (GitHub username은 선택 기능)
 - 복호화 시 **신뢰된 송신자 pin**(`sender_key_id` + 서명 공개키 일치) 필수
 
+## 설치 (Homebrew tap)
+```bash
+brew tap DevopsArtFactory/ende https://github.com/DevopsArtFactory/homebrew-ende
+brew install ende
+ende --version
+```
+
+## GitHub Release 바이너리 설치 (Linux / Windows)
+`vX.Y.Z`를 실제 태그로 바꿔서 사용하세요.
+
+Linux (amd64):
+```bash
+VERSION=vX.Y.Z
+curl -fL "https://github.com/DevopsArtFactory/ende/releases/download/${VERSION}/ende-linux-amd64" -o ende
+chmod +x ende
+sudo mv ende /usr/local/bin/ende
+ende --version
+```
+
+Windows (amd64, PowerShell):
+```powershell
+$Version = "vX.Y.Z"
+Invoke-WebRequest -Uri "https://github.com/DevopsArtFactory/ende/releases/download/$Version/ende-windows-amd64.exe" -OutFile "ende.exe"
+.\ende.exe --version
+```
+
 ---
 
 ## 2. 초기 준비 (각자 1회)
