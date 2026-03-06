@@ -10,6 +10,7 @@ Auto-generated from command --help outputs on 2026-03-05.
 |---|---|
 | `--debug` | enable diagnostic logs to stderr |
 | `-h, --help` | help for ende |
+| `-V, --version` | print version information |
 
 ### ende key
 
@@ -60,6 +61,14 @@ Auto-generated from command --help outputs on 2026-03-05.
 | Flag | Description |
 |---|---|
 | `-h, --help` | help for use |
+| `--name string` | key id |
+| `--debug` | enable diagnostic logs to stderr |
+
+### ende key share
+
+| Flag | Description |
+|---|---|
+| `-h, --help` | help for share |
 | `--name string` | key id |
 | `--debug` | enable diagnostic logs to stderr |
 
@@ -150,11 +159,20 @@ Auto-generated from command --help outputs on 2026-03-05.
 | `--signing-public string` | Ed25519 signing public key (base64) |
 | `--debug` | enable diagnostic logs to stderr |
 
+### ende unregister
+
+| Flag | Description |
+|---|---|
+| `--force` | ignore if alias is not registered |
+| `-h, --help` | help for unregister |
+| `--debug` | enable diagnostic logs to stderr |
+
 ### ende encrypt
 
 | Flag | Description |
 |---|---|
 | `--binary` | output raw binary envelope |
+| `-f, --file string` | input file path (alias of --in) |
 | `-h, --help` | help for encrypt |
 | `-i, --in string` | input path or - (default "-") |
 | `-o, --out string` | output path or - (default "-") |
@@ -202,11 +220,14 @@ Available Commands:
   recipient   Manage recipient aliases
   register    Register recipient and trusted sender in one step
   sender      Manage trusted sender signing keys
+  unregister  Remove recipient and trusted sender registration for an alias
   verify      Verify signature without decrypting
+  version     Print version information
 
 Flags:
-      --debug   enable diagnostic logs to stderr
-  -h, --help    help for ende
+      --debug     enable diagnostic logs to stderr
+  -h, --help      help for ende
+  -V, --version   print version information
 
 Use "ende [command] --help" for more information about a command.
 ```
@@ -227,6 +248,7 @@ Available Commands:
   import      Import age recipient public key into recipient aliases
   keygen      Generate X25519 recipient and Ed25519 signing key pair
   list        List local keys and recipients
+  share       Print share token for an existing local key
   use         Set default signer key ID for encrypt
 
 Flags:
@@ -323,6 +345,22 @@ Usage:
 
 Flags:
   -h, --help          help for use
+      --name string   key id
+
+Global Flags:
+      --debug   enable diagnostic logs to stderr
+```
+
+### ende key share --help
+
+```text
+Print share token for an existing local key
+
+Usage:
+  ende key share [flags]
+
+Flags:
+  -h, --help          help for share
       --name string   key id
 
 Global Flags:
@@ -523,6 +561,25 @@ Global Flags:
       --debug   enable diagnostic logs to stderr
 ```
 
+### ende unregister --help
+
+```text
+Remove recipient and trusted sender registration for an alias
+
+Usage:
+  ende unregister <alias> [flags]
+
+Aliases:
+  unregister, unreg
+
+Flags:
+      --force   ignore if alias is not registered
+  -h, --help    help for unregister
+
+Global Flags:
+      --debug   enable diagnostic logs to stderr
+```
+
 ### ende encrypt --help
 
 ```text
@@ -536,6 +593,7 @@ Aliases:
 
 Flags:
       --binary           output raw binary envelope
+  -f, --file string      input file path (alias of --in)
   -h, --help             help for encrypt
   -i, --in string        input path or - (default "-")
   -o, --out string       output path or - (default "-")
