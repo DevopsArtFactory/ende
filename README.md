@@ -78,6 +78,21 @@ You can pin image:
 make docker-build-all GO_DOCKER_IMAGE=golang:1.25
 ```
 
+## Interactive Tutorial
+
+New to ende? Run the built-in tutorial for a step-by-step walkthrough:
+
+```bash
+ende tutorial
+```
+
+The tutorial guides you through:
+1. **Language selection** (English / Korean)
+2. **Key generation** — creates your sender key pair
+3. **Peer registration** — paste a peer's share token, or generate a local test key
+4. **Encrypt** — interactive secret input (masked) with password policy guidance
+5. **Decrypt** — automatically decrypts the result from step 4
+
 ## Quickstart
 1. Generate local key material:
 ```bash
