@@ -141,7 +141,16 @@ func newDecryptCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			envelopeBytes, err := endeio.ReadInput(in)
+			var envelopeBytes []byte
+			if in == "-" {
+				if stat, _ := os.Stdin.Stat(); stat.Mode()&os.ModeCharDevice != 0 {
+					envelopeBytes, err = readEnvelopeInteractive(cmd.InOrStdin(), cmd.ErrOrStderr())
+				} else {
+					envelopeBytes, err = endeio.ReadInput(in)
+				}
+			} else {
+				envelopeBytes, err = endeio.ReadInput(in)
+			}
 			if err != nil {
 				return err
 			}
