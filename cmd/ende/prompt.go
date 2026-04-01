@@ -56,6 +56,28 @@ func promptRegisterInput(in io.Reader, errw io.Writer) (alias string, recipientO
 	return strings.TrimSpace(alias), trimmed, strings.TrimSpace(signingPublic), nil
 }
 
+func readEnvelopeInteractive(in io.Reader, errw io.Writer) ([]byte, error) {
+	fmt.Fprintln(errw, "Paste encrypted envelope, then press Enter:")
+	var buf strings.Builder
+	scanner := bufio.NewScanner(in)
+	for scanner.Scan() {
+		line := scanner.Text()
+		buf.WriteString(line)
+		buf.WriteString("\n")
+		if strings.TrimSpace(line) == "-----END ENDE ENVELOPE-----" {
+			break
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("read envelope: %w", err)
+	}
+	result := buf.String()
+	if result == "" {
+		return nil, fmt.Errorf("read envelope: empty input")
+	}
+	return []byte(result), nil
+}
+
 func promptShareRegisterInput(in io.Reader, errw io.Writer) (share string, aliasOverride string, err error) {
 	r := bufio.NewReader(in)
 	fmt.Fprint(errw, "share token (ENDE-PUB-1:...): ")
