@@ -192,3 +192,43 @@ func TestWriteOutputEmptyContent(t *testing.T) {
 		t.Fatalf("expected empty file, got %d bytes", len(result))
 	}
 }
+
+func TestWriteOutputWithOptionsNoClobber(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "existing.txt")
+
+	if err := os.WriteFile(testFile, []byte("existing"), 0o600); err != nil {
+		t.Fatalf("WriteFile failed: %v", err)
+	}
+
+	err := WriteOutputWithOptions(testFile, []byte("new"), WriteOptions{NoClobber: true})
+	if err == nil {
+		t.Fatal("expected no-clobber write to fail")
+	}
+}
+
+func TestWriteTempOutput(t *testing.T) {
+	content := []byte("temp plaintext")
+
+	path, err := WriteTempOutput(content)
+	if err != nil {
+		t.Fatalf("WriteTempOutput failed: %v", err)
+	}
+	defer os.Remove(path)
+
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile failed: %v", err)
+	}
+	if !bytes.Equal(got, content) {
+		t.Fatalf("content mismatch: got %q, want %q", got, content)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("Stat failed: %v", err)
+	}
+	if mode := info.Mode().Perm(); mode != 0o600 {
+		t.Fatalf("file permission mismatch: got %o, want 0600", mode)
+	}
+}
