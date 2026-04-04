@@ -1,13 +1,24 @@
 package main
 
 import (
+import (
 	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
+
+	"filippo.io/age"
+	"github.com/kuma/ende/internal/crypto"
+	endeio "github.com/kuma/ende/internal/io"
+	"github.com/kuma/ende/internal/keyring"
+	"github.com/kuma/ende/internal/policy"
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
+)
 
 	"filippo.io/age"
 	"github.com/kuma/ende/internal/crypto"
