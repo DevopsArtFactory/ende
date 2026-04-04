@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -13,7 +15,26 @@ import (
 	"github.com/kuma/ende/internal/keyring"
 	"github.com/kuma/ende/internal/policy"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
+
+type confirmFDReader interface {
+	io.Reader
+	Fd() uintptr
+}
+
+type encryptRecipientSummary struct {
+	Label       string
+	Fingerprint string
+	Source      string
+}
+
+type encryptSummary struct {
+	SignerID   string
+	Recipients []encryptRecipientSummary
+	OutputPath string
+	Format     string
+}
 
 func newEncryptCommand() *cobra.Command {
 	var tos []string
@@ -21,6 +42,8 @@ func newEncryptCommand() *cobra.Command {
 	var textOut bool
 	var binaryOut bool
 	var prompt bool
+	var confirm bool
+	var yes bool
 	cmd := &cobra.Command{
 		Use:   "encrypt",
 		Short: "Encrypt and sign secret payload",
@@ -71,13 +94,32 @@ func newEncryptCommand() *cobra.Command {
 
 			recipients := make([]age.Recipient, 0, len(tos))
 			hints := make([]string, 0, len(tos))
+			summaries := make([]encryptRecipientSummary, 0, len(tos))
 			for _, to := range tos {
-				r, hint, err := resolveRecipient(store, to)
+				r, hint, summary, err := resolveRecipient(store, to)
 				if err != nil {
 					return err
 				}
 				recipients = append(recipients, r)
 				hints = append(hints, hint)
+				summaries = append(summaries, summary)
+			}
+			if confirm && !yes {
+				confirmIn, closeConfirm, err := openConfirmationReader(cmd.InOrStdin())
+				if err != nil {
+					return err
+				}
+				if closeConfirm != nil {
+					defer closeConfirm.Close()
+				}
+				if err := confirmEncrypt(confirmIn, cmd.ErrOrStderr(), encryptSummary{
+					SignerID:   signAs,
+					Recipients: summaries,
+					OutputPath: out,
+					Format:     encryptOutputFormat(textOut, binaryOut),
+				}); err != nil {
+					return err
+				}
 			}
 			var plaintext []byte
 			if prompt {
@@ -116,6 +158,8 @@ func newEncryptCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&textOut, "text", true, "output ASCII-armored envelope for copy/paste transport (default true)")
 	cmd.Flags().BoolVar(&binaryOut, "binary", false, "output raw binary envelope")
 	cmd.Flags().BoolVar(&prompt, "prompt", false, "prompt for secret value interactively")
+	cmd.Flags().BoolVar(&confirm, "confirm", false, "show recipient summary and ask for confirmation before encrypting")
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation prompt (useful with --confirm in automation)")
 	return cmd
 }
 
@@ -222,33 +266,88 @@ func newVerifyCommand() *cobra.Command {
 	return cmd
 }
 
-func resolveRecipient(store *keyring.Store, target string) (age.Recipient, string, error) {
+func resolveRecipient(store *keyring.Store, target string) (age.Recipient, string, encryptRecipientSummary, error) {
 	if strings.HasPrefix(target, "age1") {
 		r, err := age.ParseX25519Recipient(target)
 		if err != nil {
-			return nil, "", err
+			return nil, "", encryptRecipientSummary{}, err
 		}
-		return r, "direct:" + target, nil
+		return r, "direct:" + target, encryptRecipientSummary{
+			Label:       "direct",
+			Fingerprint: short(keyring.FingerprintAgePublicKey(target)),
+			Source:      "direct",
+		}, nil
 	}
 	if strings.HasPrefix(target, "github:") {
 		if r, ok := store.Recipient(target); ok {
 			rec, err := age.ParseX25519Recipient(r.AgePublic)
 			if err != nil {
-				return nil, "", err
+				return nil, "", encryptRecipientSummary{}, err
 			}
-			return rec, target, nil
+			return rec, target, encryptRecipientSummary{
+				Label:       target,
+				Fingerprint: short(r.Fingerprint),
+				Source:      r.Source,
+			}, nil
 		}
-		return nil, "", fmt.Errorf("github recipient %s not pinned in local keyring; run recipient add --github first", target)
+		return nil, "", encryptRecipientSummary{}, fmt.Errorf("github recipient %s not pinned in local keyring; run recipient add --github first", target)
 	}
 	r, ok := store.Recipient(target)
 	if !ok {
-		return nil, "", fmt.Errorf("recipient alias not found: %s", target)
+		return nil, "", encryptRecipientSummary{}, fmt.Errorf("recipient alias not found: %s", target)
 	}
 	rec, err := age.ParseX25519Recipient(r.AgePublic)
 	if err != nil {
-		return nil, "", fmt.Errorf("invalid recipient key for alias %s: %w", target, err)
+		return nil, "", encryptRecipientSummary{}, fmt.Errorf("invalid recipient key for alias %s: %w", target, err)
 	}
-	return rec, target, nil
+	return rec, target, encryptRecipientSummary{
+		Label:       target,
+		Fingerprint: short(r.Fingerprint),
+		Source:      r.Source,
+	}, nil
+}
+
+func openConfirmationReader(in io.Reader) (io.Reader, io.Closer, error) {
+	if tty, ok := in.(confirmFDReader); ok && term.IsTerminal(int(tty.Fd())) {
+		return in, nil, nil
+	}
+	f, err := os.Open("/dev/tty")
+	if err != nil {
+		return nil, nil, fmt.Errorf("confirmation requires a terminal; retry without --confirm or use --yes")
+	}
+	return f, f, nil
+}
+
+func confirmEncrypt(in io.Reader, errw io.Writer, summary encryptSummary) error {
+	fmt.Fprintln(errw, "Encrypt summary:")
+	for _, recipient := range summary.Recipients {
+		fmt.Fprintf(errw, "- recipient: %s (fp=%s source=%s)\n", recipient.Label, recipient.Fingerprint, recipient.Source)
+	}
+	fmt.Fprintf(errw, "- signer: %s\n", summary.SignerID)
+	fmt.Fprintf(errw, "- output: %s\n", summary.OutputPath)
+	fmt.Fprintf(errw, "- format: %s\n", summary.Format)
+	fmt.Fprint(errw, "Continue? [y/N]: ")
+
+	reader := bufio.NewReader(in)
+	answer, err := reader.ReadString('\n')
+	if err != nil && err != io.EOF {
+		return fmt.Errorf("read confirmation: %w", err)
+	}
+	answer = strings.ToLower(strings.TrimSpace(answer))
+	if answer != "y" && answer != "yes" {
+		return fmt.Errorf("encryption cancelled")
+	}
+	return nil
+}
+
+func encryptOutputFormat(textOut, binaryOut bool) string {
+	if binaryOut {
+		return "binary"
+	}
+	if textOut {
+		return "armored text"
+	}
+	return "binary"
 }
 
 func loadIdentities(store *keyring.Store) ([]age.Identity, error) {
