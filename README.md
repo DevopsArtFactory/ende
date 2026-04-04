@@ -152,6 +152,15 @@ Text envelope input is also supported:
 ./ende decrypt -i secret.txt --text-out
 ```
 
+Safer plaintext output options:
+```bash
+# Refuse to overwrite an existing plaintext file
+./ende decrypt -i secret.ende -o decrypted.txt --no-clobber
+
+# Write plaintext to a temporary 0600 file and print the path
+./ende decrypt -i secret.ende --out-temp
+```
+
 ## Shortcuts
 - `ende enc` = `ende encrypt`
 - `ende dec` = `ende decrypt`
