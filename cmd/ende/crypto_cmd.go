@@ -322,7 +322,11 @@ func openConfirmationReader(in io.Reader) (io.Reader, io.Closer, error) {
 	if tty, ok := in.(confirmFDReader); ok && term.IsTerminal(int(tty.Fd())) {
 		return in, nil, nil
 	}
-	f, err := os.Open("/dev/tty")
+	ttyPath := "/dev/tty"
+	if runtime.GOOS == "windows" {
+		ttyPath = "CON"
+	}
+	f, err := os.Open(ttyPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("confirmation requires a terminal; retry without --confirm or use --yes")
 	}
