@@ -56,10 +56,12 @@ func WriteTempOutput(b []byte) (string, error) {
 	name := f.Name()
 	if err := f.Chmod(0o600); err != nil {
 		f.Close()
+		os.Remove(name)
 		return "", fmt.Errorf("chmod temp output file %s: %w", name, err)
 	}
 	if _, err := f.Write(b); err != nil {
 		f.Close()
+		os.Remove(name)
 		return "", fmt.Errorf("write temp output file %s: %w", name, err)
 	}
 	if err := f.Close(); err != nil {
