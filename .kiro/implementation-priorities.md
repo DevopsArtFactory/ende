@@ -31,132 +31,77 @@
 
 ## Quick Wins (1-2 weeks)
 
-### 1. Auto-fix Key File Permissions
-**Current**: Only validates permissions, fails on error
-**Improvement**: Automatically set 0600 permissions
+### 1. Mask Interactive Secret Input
+**Current**: `encrypt --prompt` reads terminal input as plain text.
+**Improvement**: Switch to TTY-aware masked input while keeping stdin/file flows unchanged.
 
 ```go
-// internal/policy/policy.go
-func EnsurePrivateFile(path string) error {
-    info, err := os.Stat(path)
-    if err != nil {
-        return fmt.Errorf("stat private file %s: %w", path, err)
-    }
-    mode := info.Mode().Perm()
-    if mode != 0o600 {
-        // Auto-fix
-        if err := os.Chmod(path, 0o600); err != nil {
-            return fmt.Errorf("fix permission for %s: %w", path, err)
-        }
-        diag.Warnf("Fixed permission for %s: %o → 0600", path, mode)
-    }
+// cmd/ende/prompt.go
+func readPromptSecret(in io.Reader, errw io.Writer) ([]byte, error) {
+    // 1. Detect whether stdin is a TTY
+    // 2. If TTY, use term.ReadPassword for masked input
+    // 3. If not TTY, fall back to current buffered reader behavior
+    // 4. Normalize trailing newline and reject empty input
+}
+```
+
+### 2. Add `ende doctor`
+**Current**: Safe setup checks are distributed across runtime failures.
+**Improvement**: Add one preflight command that validates local trust and file state before the user encrypts/decrypts.
+
+```go
+// cmd/ende/doctor_cmd.go
+type CheckResult struct {
+    Name    string
+    Status  string // ok, warn, fail
+    Message string
+}
+
+func runDoctor() []CheckResult {
+    // 1. Load keyring
+    // 2. Validate keyring path + file mode
+    // 3. Validate private key paths + permissions
+    // 4. Validate default signer exists
+    // 5. Validate recipient/sender pair consistency
     return nil
 }
 ```
 
-### 2. Add Timestamp Verification
-**Implementation**:
+### 3. Add Recipient Confirmation Before Encryption
+**Current**: Encryption resolves aliases immediately with no review step.
+**Improvement**: Add a human-readable summary before encryption, especially for first-send and multi-recipient flows.
+
 ```go
-// internal/crypto/envelope.go
-const DefaultMaxAge = 7 * 24 * time.Hour // 7 days
-
-func Open(envelopeBytes []byte, identities []age.Identity, verifyRequired bool, maxAge time.Duration) (*Envelope, []byte, error) {
-    // ... existing code ...
-    
-    // Timestamp verification
-    if maxAge > 0 {
-        createdAt, err := time.Parse(time.RFC3339, env.Metadata.CreatedAt)
-        if err != nil {
-            return nil, nil, fmt.Errorf("parse timestamp: %w", err)
-        }
-        if time.Since(createdAt) > maxAge {
-            return nil, nil, fmt.Errorf("envelope too old: created %s (max age: %s)", 
-                createdAt.Format(time.RFC3339), maxAge)
-        }
-    }
-    
-    // ... existing code ...
-}
-```
-
-### 3. Basic Audit Logging
-**Implementation**:
-```go
-// internal/audit/audit.go
-package audit
-
-import (
-    "encoding/json"
-    "os"
-    "path/filepath"
-    "time"
-)
-
-type Event struct {
-    Timestamp   time.Time `json:"timestamp"`
-    Operation   string    `json:"operation"` // encrypt, decrypt, verify
-    SenderID    string    `json:"sender_id,omitempty"`
-    Recipients  []string  `json:"recipients,omitempty"`
-    Success     bool      `json:"success"`
-    Error       string    `json:"error,omitempty"`
+// cmd/ende/crypto_cmd.go
+type EncryptSummary struct {
+    SignerID   string
+    Recipients []string
+    Out        string
+    TextOut    bool
 }
 
-func Log(event Event) error {
-    configDir, _, _, err := keyring.DefaultPaths()
-    if err != nil {
-        return err
-    }
-    
-    logPath := filepath.Join(configDir, "audit.log")
-    f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-    if err != nil {
-        return err
-    }
-    defer f.Close()
-    
-    event.Timestamp = time.Now().UTC()
-    line, _ := json.Marshal(event)
-    f.Write(append(line, '\n'))
+func confirmEncrypt(summary EncryptSummary) error {
+    // Print alias + short fingerprint + output mode
+    // Require explicit confirmation unless --yes
     return nil
 }
 ```
 
-### 4. Shell Autocompletion Generation
-**Implementation**: Use Cobra's built-in functionality
-```go
-// cmd/ende/main.go
-func newCompletionCommand() *cobra.Command {
-    return &cobra.Command{
-        Use:   "completion [bash|zsh|fish|powershell]",
-        Short: "Generate shell completion script",
-        Long: `Generate shell completion script for ende.
+### 4. Safer Plaintext File Output
+**Current**: stdout is protected, but file outputs rely on the caller to choose safe paths and overwrite behavior.
+**Improvement**: Harden plaintext file writes without breaking automation.
 
-Example:
-  # Bash
-  source <(ende completion bash)
-  
-  # Zsh
-  ende completion zsh > ~/.zsh/completions/_ende
-  
-  # Fish
-  ende completion fish > ~/.config/fish/completions/ende.fish
-`,
-        ValidArgs: []string{"bash", "zsh", "fish", "powershell"},
-        Args:      cobra.ExactArgs(1),
-        RunE: func(cmd *cobra.Command, args []string) error {
-            switch args[0] {
-            case "bash":
-                return cmd.Root().GenBashCompletion(os.Stdout)
-            case "zsh":
-                return cmd.Root().GenZshCompletion(os.Stdout)
-            case "fish":
-                return cmd.Root().GenFishCompletion(os.Stdout, true)
-            case "powershell":
-                return cmd.Root().GenPowerShellCompletion(os.Stdout)
-            }
-            return nil
-        },
-    }
+```go
+// internal/io/io.go
+type WriteOptions struct {
+    NoClobber bool
+    Mode      os.FileMode
+}
+
+func WritePlaintextFile(path string, data []byte, opts WriteOptions) error {
+    // Force 0600 for plaintext output
+    // Refuse overwrite when NoClobber is true
+    return nil
 }
 ```
 
@@ -164,7 +109,14 @@ Example:
 
 ## Phase 1: Core Security Enhancement (1-2 months)
 
-### 1.1 Key Backup Implementation
+### 1.1 Operator Safety Milestone
+1. Mask interactive prompt input
+2. Add `ende doctor`
+3. Add recipient confirmation and send summary
+4. Add safer plaintext file output defaults
+
+### 1.2 Key Backup Implementation
+
 **File Structure**:
 ```
 internal/backup/
@@ -213,7 +165,7 @@ func RestoreBackup(backupPath, password string) error {
 }
 ```
 
-### 1.2 Key Rotation Implementation
+### 1.3 Key Rotation Implementation
 **File Structure**:
 ```
 internal/rotation/
