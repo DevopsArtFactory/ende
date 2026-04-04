@@ -114,29 +114,63 @@ You can re-print a share token later:
 # alias override (optional, Enter to use token id):
 ```
 
+4. Run a local safety check before first real use:
+```bash
+./ende doctor
+```
+`ende doctor` checks:
+- keyring file presence and permissions
+- default signer configuration
+- private key file paths and `0600` permissions
+- recipient/trusted-sender registration consistency
+
 To remove a registered alias later:
 ```bash
 ./ende unregister alice
 ```
 
-4. Encrypt + sign (default: text to stdout):
+5. Encrypt + sign (default: text to stdout):
 ```bash
 echo 'TOKEN=abc123' | ./ende encrypt -t bob
 ```
 
-4-0. Encrypt from file input:
+5-0. Encrypt from file input:
 ```bash
 ./ende encrypt -t bob -f secrets.env -o secret.txt
 ```
 
-4-1. Save text output to file (optional):
+5-1. Save text output to file (optional):
 ```bash
 echo 'TOKEN=abc123' | ./ende encrypt -t bob --text -o secret.txt
 ```
 
-4-2. Raw binary output (optional):
+5-2. Raw binary output (optional):
 ```bash
 echo 'TOKEN=abc123' | ./ende encrypt -t bob --binary -o secret.ende
+```
+
+4-3. Prompt for a secret interactively without echoing it to the terminal:
+```bash
+./ende encrypt -t bob --prompt -o secret.txt
+```
+Interactive prompt notes:
+- TTY input is masked so the secret is not echoed while typing.
+- Empty prompt input is rejected.
+- Non-interactive stdin/file workflows continue to work as before.
+6. Verify and decrypt:
+4-3. Review recipients and output details before encrypting:
+```bash
+echo 'TOKEN=abc123' | ./ende encrypt -t bob --confirm -o secret.txt
+```
+`--confirm` shows:
+- recipient alias and short fingerprint
+- signer key id
+- output target
+- output format
+
+For automation, you can keep the summary behavior in scripts and skip the prompt explicitly:
+```bash
+echo 'TOKEN=abc123' | ./ende encrypt -t bob --confirm --yes -o secret.txt
 ```
 
 5. Verify and decrypt:
@@ -160,6 +194,16 @@ Safer plaintext output options:
 # Write plaintext to a temporary 0600 file and print the path
 ./ende decrypt -i secret.ende --out-temp
 ```
+
+## Health Checks
+
+Use `ende doctor` to validate local trust and configuration before troubleshooting a failed encrypt/decrypt flow:
+
+```bash
+./ende doctor
+```
+
+The command prints `ok`, `warn`, and `fail` results and exits non-zero when a hard failure is detected.
 
 ## Shortcuts
 - `ende enc` = `ende encrypt`
