@@ -29,7 +29,7 @@ func main() {
 	root.SetVersionTemplate("{{.Use}} version {{.Version}}\ncommit: " + commit + "\nbuilt: " + date + "\n")
 	root.Flags().BoolP("version", "V", false, "print version information")
 	root.PersistentFlags().BoolVar(&debug, "debug", false, "enable diagnostic logs to stderr")
-	root.AddCommand(newVersionCommand(), newKeyCommand(), newRecipientCommand(), newSenderCommand(), newRegisterCommand(), newUnregisterCommand(), newEncryptCommand(), newDecryptCommand(), newVerifyCommand(), newTutorialCommand())
+	root.AddCommand(newVersionCommand(), newKeyCommand(), newRecipientCommand(), newSenderCommand(), newRegisterCommand(), newUnregisterCommand(), newEncryptCommand(), newDecryptCommand(), newVerifyCommand(), newTutorialCommand(), newDoctorCommand())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

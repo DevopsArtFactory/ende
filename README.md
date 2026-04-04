@@ -114,31 +114,42 @@ You can re-print a share token later:
 # alias override (optional, Enter to use token id):
 ```
 
+4. Run a local safety check before first real use:
+```bash
+./ende doctor
+```
+`ende doctor` checks:
+- keyring file presence and permissions
+- default signer configuration
+- private key file paths and `0600` permissions
+- recipient/trusted-sender registration consistency
+
 To remove a registered alias later:
 ```bash
 ./ende unregister alice
 ```
 
-4. Encrypt + sign (default: text to stdout):
+5. Encrypt + sign (default: text to stdout):
 ```bash
 echo 'TOKEN=abc123' | ./ende encrypt -t bob
 ```
 
-4-0. Encrypt from file input:
+5-0. Encrypt from file input:
 ```bash
 ./ende encrypt -t bob -f secrets.env -o secret.txt
 ```
 
-4-1. Save text output to file (optional):
+5-1. Save text output to file (optional):
 ```bash
 echo 'TOKEN=abc123' | ./ende encrypt -t bob --text -o secret.txt
 ```
 
-4-2. Raw binary output (optional):
+5-2. Raw binary output (optional):
 ```bash
 echo 'TOKEN=abc123' | ./ende encrypt -t bob --binary -o secret.ende
 ```
 
+6. Verify and decrypt:
 4-3. Review recipients and output details before encrypting:
 ```bash
 echo 'TOKEN=abc123' | ./ende encrypt -t bob --confirm -o secret.txt
@@ -166,6 +177,16 @@ Text envelope input is also supported:
 ./ende decrypt -i secret.txt -o decrypted.txt
 ./ende decrypt -i secret.txt --text-out
 ```
+
+## Health Checks
+
+Use `ende doctor` to validate local trust and configuration before troubleshooting a failed encrypt/decrypt flow:
+
+```bash
+./ende doctor
+```
+
+The command prints `ok`, `warn`, and `fail` results and exits non-zero when a hard failure is detected.
 
 ## Shortcuts
 - `ende enc` = `ende encrypt`
