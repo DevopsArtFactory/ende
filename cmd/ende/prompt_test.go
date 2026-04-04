@@ -130,3 +130,30 @@ func TestReadPromptSecret_TTYUsesMaskedInput(t *testing.T) {
 		t.Error("expected prompt message on stderr")
 	}
 }
+
+func TestReadPromptSecret_TTYRejectsEmptyInput(t *testing.T) {
+	oldIsTerminal := isTerminal
+	oldReadPassword := readPassword
+	t.Cleanup(func() {
+		isTerminal = oldIsTerminal
+		readPassword = oldReadPassword
+	})
+
+	isTerminal = func(fd int) bool {
+		return fd == 42
+	}
+	readPassword = func(fd int) ([]byte, error) {
+		return []byte(""), nil
+	}
+
+	var errBuf bytes.Buffer
+	in := fakeTTYReader{Reader: strings.NewReader("ignored\n"), fd: 42}
+
+	_, err := readPromptSecret(in, &errBuf)
+	if err == nil {
+		t.Fatal("expected error for empty TTY input")
+	}
+	if !strings.Contains(err.Error(), "secret is required") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
