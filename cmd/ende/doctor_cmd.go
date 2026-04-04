@@ -70,8 +70,16 @@ func runDoctorChecks() ([]doctorCheck, error) {
 		checks = append(checks,
 			checkPrivatePath(fmt.Sprintf("key[%s].age_identity", id), keyEntry.AgeIdentity),
 			checkPrivatePath(fmt.Sprintf("key[%s].sign_private", id), keyEntry.SignPrivate),
-		)
-	}
+	for _, id := range store.AllKeyIDs() {
+		keyEntry, ok := store.Key(id)
+		if !ok {
+			checks = append(checks, doctorCheck{
+				Name:    fmt.Sprintf("key[%s]", id),
+				Status:  doctorStatusFail,
+				Message: fmt.Sprintf("key %q is listed but not found in store", id),
+			})
+			continue
+		}
 		checks = append(checks,
 			checkPrivatePath(fmt.Sprintf("key[%s].age_identity", id), keyEntry.AgeIdentity),
 			checkPrivatePath(fmt.Sprintf("key[%s].sign_private", id), keyEntry.SignPrivate),
