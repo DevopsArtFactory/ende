@@ -178,6 +178,8 @@ func newDecryptCommand() *cobra.Command {
 	var in, out string
 	var verifyRequired bool
 	var textOut bool
+	var noClobber bool
+	var outTemp bool
 	cmd := &cobra.Command{
 		Use:   "decrypt",
 		Short: "Verify and decrypt envelope",
@@ -185,8 +187,10 @@ func newDecryptCommand() *cobra.Command {
 			"dec",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := policy.EnsurePlaintextOutputAllowed(out); err != nil {
-				return err
+			if !outTemp {
+				if err := policy.EnsurePlaintextOutputAllowed(out); err != nil {
+					return err
+				}
 			}
 			store, err := keyring.Load()
 			if err != nil {
@@ -222,7 +226,15 @@ func newDecryptCommand() *cobra.Command {
 					return fmt.Errorf("trusted sender mismatch for %s", env.Metadata.SenderKeyID)
 				}
 			}
-			if err := endeio.WriteOutput(out, plaintext); err != nil {
+			if outTemp {
+				path, err := endeio.WriteTempOutput(plaintext)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "wrote plaintext to temporary file: %s\n", path)
+				return nil
+			}
+			if err := endeio.WriteOutputWithOptions(out, plaintext, endeio.WriteOptions{NoClobber: noClobber}); err != nil {
 				return err
 			}
 			return nil
@@ -233,7 +245,13 @@ func newDecryptCommand() *cobra.Command {
 			if out != "" && out != "-" {
 				return fmt.Errorf("--text-out cannot be used with file output")
 			}
+			if outTemp {
+				return fmt.Errorf("--text-out cannot be used with --out-temp")
+			}
 			out = "-"
+		}
+		if outTemp && out != "" {
+			return fmt.Errorf("--out-temp cannot be used with --out")
 		}
 		return nil
 	}
@@ -241,6 +259,8 @@ func newDecryptCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&out, "out", "o", "", "output plaintext path or - (explicit)")
 	cmd.Flags().BoolVar(&verifyRequired, "verify-required", true, "require signature verification")
 	cmd.Flags().BoolVar(&textOut, "text-out", false, "print decrypted plaintext to stdout")
+	cmd.Flags().BoolVar(&noClobber, "no-clobber", false, "refuse to overwrite an existing plaintext output file")
+	cmd.Flags().BoolVar(&outTemp, "out-temp", false, "write plaintext to a temporary 0600 file")
 	return cmd
 }
 

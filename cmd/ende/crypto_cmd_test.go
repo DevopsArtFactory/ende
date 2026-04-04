@@ -48,6 +48,32 @@ func TestShort(t *testing.T) {
 	}
 }
 
+func TestDecryptCommandRejectsOutTempWithOut(t *testing.T) {
+	cmd := newDecryptCommand()
+	cmd.SetArgs([]string{"--out-temp", "--out", "plain.txt"})
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected command to fail")
+	}
+	if !strings.Contains(err.Error(), "--out-temp cannot be used with --out") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDecryptCommandRejectsOutTempWithTextOut(t *testing.T) {
+	cmd := newDecryptCommand()
+	cmd.SetArgs([]string{"--out-temp", "--text-out"})
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected command to fail")
+	}
+	if !strings.Contains(err.Error(), "--text-out cannot be used with --out-temp") {
 func TestResolveRecipientIncludesAliasSummary(t *testing.T) {
 	identity, err := age.GenerateX25519Identity()
 	if err != nil {
