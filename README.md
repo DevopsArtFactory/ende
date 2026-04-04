@@ -149,7 +149,7 @@ echo 'TOKEN=abc123' | ./ende encrypt -t bob --text -o secret.txt
 echo 'TOKEN=abc123' | ./ende encrypt -t bob --binary -o secret.ende
 ```
 
-4-3. Prompt for a secret interactively without echoing it to the terminal:
+5-3. Prompt for a secret interactively without echoing it to the terminal:
 ```bash
 ./ende encrypt -t bob --prompt -o secret.txt
 ```
@@ -157,8 +157,8 @@ Interactive prompt notes:
 - TTY input is masked so the secret is not echoed while typing.
 - Empty prompt input is rejected.
 - Non-interactive stdin/file workflows continue to work as before.
-6. Verify and decrypt:
-4-3. Review recipients and output details before encrypting:
+
+5-4. Review recipients and output details before encrypting:
 ```bash
 echo 'TOKEN=abc123' | ./ende encrypt -t bob --confirm -o secret.txt
 ```
@@ -173,7 +173,7 @@ For automation, you can keep the summary behavior in scripts and skip the prompt
 echo 'TOKEN=abc123' | ./ende encrypt -t bob --confirm --yes -o secret.txt
 ```
 
-5. Verify and decrypt:
+6. Verify and decrypt:
 ```bash
 ./ende verify -i secret.ende
 ./ende decrypt -i secret.ende -o decrypted.txt
@@ -194,6 +194,8 @@ Safer plaintext output options:
 # Write plaintext to a temporary 0600 file and print the path
 ./ende decrypt -i secret.ende --out-temp
 ```
+
+`--out-temp` is useful when you want Ende to choose a short-lived secure file path for you.
 
 ## Health Checks
 

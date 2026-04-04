@@ -74,6 +74,10 @@ func TestDecryptCommandRejectsOutTempWithTextOut(t *testing.T) {
 		t.Fatal("expected command to fail")
 	}
 	if !strings.Contains(err.Error(), "--text-out cannot be used with --out-temp") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestResolveRecipientIncludesAliasSummary(t *testing.T) {
 	identity, err := age.GenerateX25519Identity()
 	if err != nil {
