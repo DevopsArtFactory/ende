@@ -28,11 +28,11 @@ const (
 	colorWhite   = "\033[97m"
 )
 
-func bold(s string) string    { return colorBold + s + colorReset }
-func cyan(s string) string    { return colorCyan + s + colorReset }
-func green(s string) string   { return colorGreen + s + colorReset }
-func yellow(s string) string  { return colorYellow + s + colorReset }
-func gray(s string) string    { return colorGray + s + colorReset }
+func bold(s string) string   { return colorBold + s + colorReset }
+func cyan(s string) string   { return colorCyan + s + colorReset }
+func green(s string) string  { return colorGreen + s + colorReset }
+func yellow(s string) string { return colorYellow + s + colorReset }
+func gray(s string) string   { return colorGray + s + colorReset }
 func highlight(s string) string {
 	return colorBold + colorBgBlack + colorWhite + "  " + s + "  " + colorReset
 }
@@ -475,8 +475,8 @@ func tutorialKeygen(name string) (string, error) {
 	store.AddKey(keyring.KeyEntry{
 		ID:          name,
 		AgeIdentity: agePath,
-		SignPrivate:  signPath,
-		SignPublic:   signPub,
+		SignPrivate: signPath,
+		SignPublic:  signPub,
 	})
 	if err := store.AddSender(name, signPub, "local-key", "", true); err != nil {
 		return "", err
