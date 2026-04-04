@@ -7,6 +7,11 @@
 - CLI refactored from monolithic main.go into focused command files
 - Test coverage significantly improved across all internal packages
 
+## Current Reassessment
+- The next milestone should prioritize reducing operator mistakes, not just adding platform breadth.
+- The highest-leverage improvements are the ones that increase confidence at the moment of encrypt/decrypt.
+- Near-term roadmap should focus on: masked secret entry, preflight diagnostics, recipient confirmation, and safer plaintext output handling.
+
 ## 1. Core Security Features
 
 ### 1.1 Key Rotation - MEDIUM PRIORITY (downgraded from HIGH)
@@ -85,7 +90,73 @@ ende decrypt -i secret.ende
 
 ## 2. Usability Improvements
 
-### 2.1 Interactive Setup Wizard - MEDIUM PRIORITY
+### 2.1 Safety Doctor / Preflight Checks - HIGH PRIORITY
+**Why now**: Users need a quick way to confirm their local environment is safe before exchanging secrets.
+
+**Implementation Proposal**:
+```bash
+ende doctor
+# → Validate:
+# 1. keyring path and permissions
+# 2. private key file permissions
+# 3. default signer configuration
+# 4. recipient/sender registration consistency
+# 5. stale or risky trust entries
+```
+
+**Suggested Checks**:
+- Missing default signer
+- Missing trusted sender for a registered recipient
+- Broken private key paths
+- Keyring file mode warnings
+- GitHub pin mismatch or unverified GitHub-mode onboarding reminders
+
+---
+
+### 2.2 Safe Secret Prompt UX - HIGH PRIORITY
+**Current**: `encrypt --prompt` is convenient, but it should behave like a secret input flow instead of a plain terminal read.
+
+**Implementation Proposal**:
+```bash
+ende encrypt -t bob --prompt -o secret.txt
+# → masked input
+# → optional confirm input
+# → empty input rejected
+# → weak-value warning before encryption
+```
+
+**Design Goals**:
+- Never echo secret input back to terminal
+- Reduce accidental whitespace/newline mistakes
+- Warn on obviously weak secrets without blocking all usage
+- Keep non-interactive stdin/file workflows unchanged
+
+---
+
+### 2.3 Recipient Confirmation and Send Summary - HIGH PRIORITY
+**Why now**: The most likely user mistake is encrypting to the wrong alias or overlooking who will be able to decrypt.
+
+**Implementation Proposal**:
+```bash
+ende encrypt -t bob -t diana --confirm
+# → recipient summary:
+#    - bob (fp=abcd1234)
+#    - diana (fp=efgh5678)
+#    signer: alice
+#    output: secret.txt
+#    format: armored text
+# Continue? [y/N]
+```
+
+**Suggested Behavior**:
+- Default to confirmation on first-send or multi-recipient flows
+- Show short fingerprints and source metadata
+- Allow `--yes` for automation
+- Reuse the same summary in tutorial/onboarding flows
+
+---
+
+### 2.4 Interactive Setup Wizard - MEDIUM PRIORITY
 **Current**: Many command options create high barrier for beginners
 
 **Implementation Proposal**:
@@ -100,7 +171,7 @@ ende init
 
 ---
 
-### 2.2 GUI Tool - LOW PRIORITY
+### 2.5 GUI Tool - LOW PRIORITY
 **Need**: Support users unfamiliar with CLI
 
 **Implementation Options**:
@@ -121,7 +192,7 @@ ende init
 
 ---
 
-### 2.3 IDE Plugins - MEDIUM PRIORITY
+### 2.6 IDE Plugins - MEDIUM PRIORITY
 **Goal**: Integrate into development workflow
 
 **VS Code Extension**:
@@ -141,7 +212,27 @@ DATABASE_URL=postgres://... // Right-click → "Encrypt with Ende"
 
 ---
 
-### 2.4 Shell Autocompletion - LOW PRIORITY
+### 2.7 Safer Plaintext Output Modes - MEDIUM PRIORITY
+**Why now**: stdout protection already exists, but file-based plaintext output can still be made safer for day-to-day use.
+
+**Implementation Proposal**:
+```bash
+ende decrypt -i secret.ende --out-temp
+# → writes plaintext to a temporary 0600 file
+# → prints path for short-term use
+
+ende decrypt -i secret.ende -o secrets.txt --no-clobber
+# → refuses overwrite unless explicitly allowed
+```
+
+**Additional Options**:
+- Force plaintext output files to `0600`
+- `--no-clobber` for safe default writes
+- ephemeral display mode for one-time viewing
+
+---
+
+### 2.8 Shell Autocompletion - LOW PRIORITY
 ```bash
 # Bash/Zsh/Fish autocompletion
 ende completion bash > /etc/bash_completion.d/ende
@@ -521,6 +612,9 @@ ende tutorial start
 - Team onboarding procedures
 - Incident response playbook
 - Compliance checklists
+- Recipient fingerprint verification checklist
+- Recommended `ende doctor` checks before first production use
+- Plaintext handling guidance for local development machines
 
 ---
 
@@ -540,28 +634,28 @@ ende migrate to-sops --input secrets.ende
 ## 9. Implementation Priority by Phase
 
 ### Phase 1: Core Security (1-2 months)
-1. ✅ Complete key rotation implementation
-2. ✅ Key backup/recovery
-3. ✅ Audit logging
-4. ✅ Key revocation mechanism
+1. Safe secret prompt UX
+2. `ende doctor` preflight command
+3. Recipient confirmation / first-send summary
+4. Safer plaintext file output modes
 
 ### Phase 2: Team Collaboration (2-3 months)
-1. ✅ Team keyring sharing
-2. ✅ CI/CD integration
-3. ✅ Secret bundles
-4. ✅ Interactive setup wizard
+1. Key backup/recovery
+2. Team keyring sharing
+3. CI/CD integration
+4. Interactive setup wizard
 
 ### Phase 3: Advanced Features (3-6 months)
-1. ✅ IDE plugins
-2. ✅ Kubernetes integration
-3. ✅ MFA support
-4. ✅ Policy-based access control
+1. Secret bundles
+2. IDE plugins
+3. Kubernetes integration
+4. MFA support
 
 ### Phase 4: Expansion and Optimization (6+ months)
-1. ✅ GUI tools
-2. ✅ HSM support
-3. ✅ Large file handling
-4. ✅ Advanced monitoring
+1. Policy-based access control
+2. GUI tools
+3. HSM support
+4. Advanced monitoring
 
 ---
 
@@ -587,11 +681,11 @@ ende migrate to-sops --input secrets.ende
 
 ## Conclusion
 
-Ende is built on a solid foundation, and adding these features incrementally 
-can grow it into an enterprise-grade secret management tool.
+Ende is built on a solid foundation, and the next step should optimize for
+safe everyday usage before expanding into broader platform features.
 
 Priorities:
-1. **Security Enhancement** (key rotation, backup, revocation)
-2. **Team Collaboration** (shared keyring, CI/CD)
-3. **Usability** (GUI, IDE plugins)
-4. **Scalability** (plugins, integrations)
+1. **Operator Safety** (masked prompts, recipient confirmation, safer plaintext handling)
+2. **Security Assurance** (`ende doctor`, trust checks, backup/recovery)
+3. **Team Collaboration** (shared keyring, CI/CD)
+4. **Expansion** (GUI, IDE plugins, integrations)

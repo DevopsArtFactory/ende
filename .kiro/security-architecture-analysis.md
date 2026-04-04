@@ -85,7 +85,64 @@ internal/
 
 ## 3. Security Vulnerabilities and Improvements
 
-### 3.1 🟡 MEDIUM (downgraded): Key Rotation Mechanism
+### 3.1 🔴 HIGH: Interactive Secret Prompt Echo Risk
+
+**Issue:**
+```go
+// cmd/ende/prompt.go
+func readPromptSecret(in io.Reader, errw io.Writer) ([]byte, error) {
+    r := bufio.NewReader(in)
+    fmt.Fprint(errw, "secret> ")
+    v, err := r.ReadString('\n')
+    // plain terminal input, no masking
+}
+```
+
+**Impact:**
+- Secret may be visible on screen during entry
+- Secret can be captured in terminal recording / screen sharing sessions
+- Interactive flow gives users a false sense of "safe prompt" handling
+
+**Recommendations:**
+1. Use TTY-aware masked input for interactive secret entry
+2. Add optional confirmation prompt for high-risk flows
+3. Reject empty values and normalize trailing newline behavior
+4. Add tests for TTY and non-TTY prompt behavior
+
+### 3.2 🟡 MEDIUM: Missing Preflight Safety Diagnostics
+
+**Issue:**
+- No single command validates whether the local environment is ready for secure usage
+- Common setup mistakes are discovered only after an encrypt/decrypt failure
+
+**Impact:**
+- Users may operate with broken trust state
+- Misconfigured defaults increase onboarding friction
+- Security-sensitive warnings remain scattered across commands
+
+**Recommendations:**
+```bash
+ende doctor
+# Check signer defaults, key paths, key permissions,
+# recipient/sender consistency, and trust freshness warnings
+```
+
+### 3.3 🟡 MEDIUM: Recipient Mis-Selection Risk During Encryption
+
+**Issue:**
+- `encrypt` resolves aliases immediately without a human-readable confirmation step
+- Multi-recipient flows increase the chance of accidental over-sharing
+
+**Impact:**
+- Secret can be encrypted to the wrong recipient alias
+- Users may overlook who will be able to decrypt
+
+**Recommendations:**
+1. Add `--confirm` summary before encryption
+2. Show recipient alias, short fingerprint, signer, output path, and output mode
+3. Default to confirmation in first-send or multi-recipient scenarios
+
+### 3.4 🟡 MEDIUM (downgraded): Key Rotation Mechanism
 
 **Status:** `recipient rotate` and `sender rotate` commands are now implemented. They update the public key and fingerprint in the local keyring.
 
@@ -103,7 +160,7 @@ internal/
 4. Rotation audit trail
 ```
 
-### 3.2 🔴 HIGH: Missing Key Backup and Recovery Mechanism
+### 3.5 🔴 HIGH: Missing Key Backup and Recovery Mechanism
 
 **Issue:**
 - Keys are unrecoverable if lost
@@ -120,7 +177,7 @@ ende key restore --input encrypted-backup.age --passphrase
 ende key backup --threshold 2 --shares 3
 ```
 
-### 3.3 🟡 MEDIUM: GitHub SSH Key TOFU Verification Vulnerability
+### 3.6 🟡 MEDIUM: GitHub SSH Key TOFU Verification Vulnerability
 
 **Issue:**
 ```go
@@ -138,7 +195,7 @@ ende key backup --threshold 2 --shares 3
 2. Verify GitHub SSH key fingerprints through alternate channels
 3. Strengthen warning messages during key registration
 
-### 3.4 🟡 MEDIUM: Unencrypted Keyring File
+### 3.7 🟡 MEDIUM: Unencrypted Keyring File
 
 **Issue:**
 ```yaml
@@ -162,7 +219,7 @@ recipients:
 3. At minimum, encrypt sensitive fields only
 ```
 
-### 3.5 🟡 MEDIUM: Missing Timestamp Verification
+### 3.8 🟡 MEDIUM: Missing Timestamp Verification
 
 **Issue:**
 ```go
@@ -191,7 +248,7 @@ type Metadata struct {
 }
 ```
 
-### 3.6 🟡 MEDIUM: Missing Memory Security
+### 3.9 🟡 MEDIUM: Missing Memory Security
 
 **Issue:**
 ```go
@@ -218,7 +275,7 @@ func secureClear(b []byte) {
 // Or use mlock to prevent swapping
 ```
 
-### 3.7 🟢 LOW: Missing Logging and Audit Functionality
+### 3.10 🟢 LOW: Missing Logging and Audit Functionality
 
 **Issue:**
 - No logs for encrypt/decrypt operations
@@ -239,7 +296,7 @@ type AuditLog struct {
 // ~/.config/ende/audit.log (append-only)
 ```
 
-### 3.8 🟢 LOW: Missing Key Expiration Policy
+### 3.11 🟢 LOW: Missing Key Expiration Policy
 
 **Issue:**
 - Cannot set expiration date during key generation

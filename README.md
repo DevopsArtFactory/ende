@@ -150,6 +150,22 @@ echo 'TOKEN=abc123' | ./ende encrypt -t bob --binary -o secret.ende
 ```
 
 6. Verify and decrypt:
+4-3. Review recipients and output details before encrypting:
+```bash
+echo 'TOKEN=abc123' | ./ende encrypt -t bob --confirm -o secret.txt
+```
+`--confirm` shows:
+- recipient alias and short fingerprint
+- signer key id
+- output target
+- output format
+
+For automation, you can keep the summary behavior in scripts and skip the prompt explicitly:
+```bash
+echo 'TOKEN=abc123' | ./ende encrypt -t bob --confirm --yes -o secret.txt
+```
+
+5. Verify and decrypt:
 ```bash
 ./ende verify -i secret.ende
 ./ende decrypt -i secret.ende -o decrypted.txt
