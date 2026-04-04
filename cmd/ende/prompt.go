@@ -5,7 +5,17 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"golang.org/x/term"
 )
+
+var isTerminal = term.IsTerminal
+var readPassword = term.ReadPassword
+
+type fdReader interface {
+	io.Reader
+	Fd() uintptr
+}
 
 func promptRecipientInput(in io.Reader, errw io.Writer) (alias string, keyOrShare string, err error) {
 	r := bufio.NewReader(in)
@@ -23,13 +33,31 @@ func promptRecipientInput(in io.Reader, errw io.Writer) (alias string, keyOrShar
 }
 
 func readPromptSecret(in io.Reader, errw io.Writer) ([]byte, error) {
-	r := bufio.NewReader(in)
 	fmt.Fprint(errw, "secret> ")
+
+	if tty, ok := in.(fdReader); ok && isTerminal(int(tty.Fd())) {
+		v, err := readPassword(int(tty.Fd()))
+		fmt.Fprintln(errw)
+		if err != nil {
+			return nil, fmt.Errorf("read prompt value: %w", err)
+		}
+		secret := strings.TrimRight(string(v), "\r\n")
+		if secret == "" {
+			return nil, fmt.Errorf("secret is required")
+		}
+		return []byte(secret), nil
+	}
+
+	r := bufio.NewReader(in)
 	v, err := r.ReadString('\n')
 	if err != nil && err != io.EOF {
 		return nil, fmt.Errorf("read prompt value: %w", err)
 	}
-	return []byte(strings.TrimRight(v, "\r\n")), nil
+	secret := strings.TrimRight(v, "\r\n")
+	if secret == "" {
+		return nil, fmt.Errorf("secret is required")
+	}
+	return []byte(secret), nil
 }
 
 func promptRegisterInput(in io.Reader, errw io.Writer) (alias string, recipientOrShare string, signingPublic string, err error) {

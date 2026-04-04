@@ -149,6 +149,14 @@ echo 'TOKEN=abc123' | ./ende encrypt -t bob --text -o secret.txt
 echo 'TOKEN=abc123' | ./ende encrypt -t bob --binary -o secret.ende
 ```
 
+4-3. Prompt for a secret interactively without echoing it to the terminal:
+```bash
+./ende encrypt -t bob --prompt -o secret.txt
+```
+Interactive prompt notes:
+- TTY input is masked so the secret is not echoed while typing.
+- Empty prompt input is rejected.
+- Non-interactive stdin/file workflows continue to work as before.
 6. Verify and decrypt:
 4-3. Review recipients and output details before encrypting:
 ```bash
