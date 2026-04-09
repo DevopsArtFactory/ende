@@ -3,6 +3,7 @@ package policy
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -17,6 +18,12 @@ func TestEnsurePrivateFile(t *testing.T) {
 	}
 	if err := os.Chmod(p, 0o644); err != nil {
 		t.Fatal(err)
+	}
+	if runtime.GOOS == "windows" {
+		if err := EnsurePrivateFile(p); err != nil {
+			t.Fatalf("expected Windows permission check bypass: %v", err)
+		}
+		return
 	}
 	if err := EnsurePrivateFile(p); err == nil {
 		t.Fatal("expected failure for 0644")
