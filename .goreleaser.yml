@@ -1,0 +1,69 @@
+version: 2
+
+project_name: ende
+
+before:
+  hooks:
+    - go test ./...
+
+builds:
+  - id: ende
+    main: ./cmd/ende
+    binary: ende
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{ .Version }} -X main.commit={{ .ShortCommit }} -X main.date={{ .Date }}
+
+archives:
+  - id: binaries
+    ids:
+      - ende
+    formats:
+      - binary
+    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+
+  - id: packages
+    ids:
+      - ende
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+
+checksum:
+  name_template: "SHA256SUMS"
+
+release:
+  github:
+    owner: DevopsArtFactory
+    name: ende
+
+brews:
+  - ids:
+      - packages
+    name: ende
+    directory: "."
+    homepage: "https://github.com/DevopsArtFactory/ende"
+    description: "Secure CLI for DevOps teams to share secrets using public-key encryption and sender verification."
+    license: "MIT"
+    repository:
+      owner: DevopsArtFactory
+      name: homebrew-ende
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    commit_author:
+      name: github-actions[bot]
+      email: 41898282+github-actions[bot]@users.noreply.github.com
+    commit_msg_template: "Update Homebrew formula for {{ .ProjectName }} {{ .Tag }}"
+    download_strategy: CurlDownloadStrategy
