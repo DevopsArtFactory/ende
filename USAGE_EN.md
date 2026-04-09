@@ -318,7 +318,8 @@ Options:
   - `verify-required=true` by default in `decrypt`
   - unknown sender IDs are rejected during decrypt
   - Plaintext stdout blocked by default (`--out -` required)
-  - Private key file permission `0600` enforced
+  - Private key file permission `0600` enforced on Unix-like systems
+  - Windows skips POSIX mode checks because NTFS ACLs do not map to `0600`
 
 - Operational safety
   - Secrets are handled via file/stdin paths, not CLI secret arguments
