@@ -318,7 +318,8 @@ recipient + trusted sender를 한 번에 등록
   - `decrypt`에서 `verify-required=true` 기본
   - unknown sender ID는 복호화 단계에서 거부
   - 평문 stdout 기본 차단 (`--out -` 명시 필요)
-  - 개인키 파일 권한 `0600` 강제
+  - Unix 계열에서는 개인키 파일 권한 `0600` 강제
+  - Windows는 NTFS ACL이 `0600`과 직접 매핑되지 않아 POSIX 모드 검사를 생략
 
 - 운영/감사 관점
   - 비밀값을 CLI 인자로 받지 않고 파일/stdin 중심 처리

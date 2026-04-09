@@ -3,12 +3,17 @@ package policy
 import (
 	"fmt"
 	"os"
+	"runtime"
 )
 
 func EnsurePrivateFile(path string) error {
 	info, err := os.Stat(path)
 	if err != nil {
 		return fmt.Errorf("stat private file %s: %w", path, err)
+	}
+	if runtime.GOOS == "windows" {
+		// Windows ACLs do not map cleanly to POSIX mode bits.
+		return nil
 	}
 	mode := info.Mode().Perm()
 	if mode != 0o600 {
