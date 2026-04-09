@@ -23,6 +23,8 @@ brew tap DevopsArtFactory/ende https://github.com/DevopsArtFactory/homebrew-ende
 brew install ende
 ```
 
+The Homebrew tap formula is updated automatically from Git tags through GoReleaser.
+
 Upgrade:
 ```bash
 brew update
@@ -33,6 +35,14 @@ Verify:
 ```bash
 ende --version
 ```
+
+## Release Automation
+- Tagged releases use GoReleaser to build macOS, Linux, and Windows binaries.
+- GoReleaser publishes release archives and raw binaries to GitHub Releases.
+- GoReleaser updates the Homebrew tap repository at [DevopsArtFactory/homebrew-ende](https://github.com/DevopsArtFactory/homebrew-ende).
+
+Required GitHub Actions secret:
+- `HOMEBREW_TAP_GITHUB_TOKEN`: token with `contents: write` access to `DevopsArtFactory/homebrew-ende`
 
 ## Install from GitHub Release (Linux / Windows)
 Replace `vX.Y.Z` with the release tag.
