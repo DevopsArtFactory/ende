@@ -12,6 +12,12 @@
 - Signed envelopes detect tampering and sender spoofing.
 - Plaintext output to stdout is blocked by default unless `--out -` is explicitly passed.
 
+## Terminology
+- `peer`: the person or device you are sending a secret to
+- `share code`: the `ENDE-PUB-1:...` string used for peer onboarding
+- `send` / `receive`: task-oriented names for `encrypt` / `decrypt`
+- `recipient` / `sender`: lower-level trust model terms still used in advanced commands
+
 ## Install/build
 ```bash
 go build ./cmd/ende
@@ -110,18 +116,18 @@ The tutorial guides you through:
 ./ende key keygen --name bob --export-public --export-dir .
 ```
 
-2. Alice shares `share:` token from keygen output to Bob.
+2. Alice shares the `share:` code from keygen output to Bob.
 
-You can re-print a share token later:
+You can re-print a share code later:
 ```bash
 ./ende key share --name alice
 ```
 
-3. Bob registers interactively in one command (recipient + sender):
+3. Bob adds Alice as a peer in one command:
 ```bash
-./ende register
-# share token (ENDE-PUB-1:...): ENDE-PUB-1:...
-# alias override (optional, Enter to use token id):
+./ende add-peer
+# share code (ENDE-PUB-1:...): ENDE-PUB-1:...
+# peer name override (optional, Enter to use the shared name):
 ```
 
 4. Run a local safety check before first real use:
@@ -132,77 +138,77 @@ You can re-print a share token later:
 - keyring file presence and permissions
 - default signer configuration
 - private key file paths and `0600` permissions
-- recipient/trusted-sender registration consistency
+- peer / trusted-signing-key registration consistency
 
 To remove a registered alias later:
 ```bash
 ./ende unregister alice
 ```
 
-5. Encrypt + sign (default: text to stdout):
+5. Send a secret securely (default: text to stdout):
 ```bash
-echo 'TOKEN=abc123' | ./ende encrypt -t bob
+echo 'TOKEN=abc123' | ./ende send -t bob
 ```
 
 5-0. Encrypt from file input:
 ```bash
-./ende encrypt -t bob -f secrets.env -o secret.txt
+./ende send -t bob -f secrets.env -o secret.txt
 ```
 
 5-1. Save text output to file (optional):
 ```bash
-echo 'TOKEN=abc123' | ./ende encrypt -t bob --text -o secret.txt
+echo 'TOKEN=abc123' | ./ende send -t bob --text -o secret.txt
 ```
 
 5-2. Raw binary output (optional):
 ```bash
-echo 'TOKEN=abc123' | ./ende encrypt -t bob --binary -o secret.ende
+echo 'TOKEN=abc123' | ./ende send -t bob --binary -o secret.ende
 ```
 
 5-3. Prompt for a secret interactively without echoing it to the terminal:
 ```bash
-./ende encrypt -t bob --prompt -o secret.txt
+./ende send -t bob --prompt -o secret.txt
 ```
 Interactive prompt notes:
 - TTY input is masked so the secret is not echoed while typing.
 - Empty prompt input is rejected.
 - Non-interactive stdin/file workflows continue to work as before.
 
-5-4. Review recipients and output details before encrypting:
+5-4. Review peer and output details before sending:
 ```bash
-echo 'TOKEN=abc123' | ./ende encrypt -t bob --confirm -o secret.txt
+echo 'TOKEN=abc123' | ./ende send -t bob --confirm -o secret.txt
 ```
 `--confirm` shows:
-- recipient alias and short fingerprint
+- peer alias and short fingerprint
 - signer key id
 - output target
 - output format
 
 For automation, you can keep the summary behavior in scripts and skip the prompt explicitly:
 ```bash
-echo 'TOKEN=abc123' | ./ende encrypt -t bob --confirm --yes -o secret.txt
+echo 'TOKEN=abc123' | ./ende send -t bob --confirm --yes -o secret.txt
 ```
 
-6. Verify and decrypt:
+6. Receive and decrypt:
 ```bash
 ./ende verify -i secret.ende
-./ende decrypt -i secret.ende -o decrypted.txt
+./ende receive -i secret.ende -o decrypted.txt
 ```
 
 Text envelope input is also supported:
 ```bash
 ./ende verify -i secret.txt
-./ende decrypt -i secret.txt -o decrypted.txt
-./ende decrypt -i secret.txt --text-out
+./ende receive -i secret.txt -o decrypted.txt
+./ende receive -i secret.txt --text-out
 ```
 
 Safer plaintext output options:
 ```bash
 # Refuse to overwrite an existing plaintext file
-./ende decrypt -i secret.ende -o decrypted.txt --no-clobber
+./ende receive -i secret.ende -o decrypted.txt --no-clobber
 
 # Write plaintext to a temporary 0600 file and print the path
-./ende decrypt -i secret.ende --out-temp
+./ende receive -i secret.ende --out-temp
 ```
 
 `--out-temp` is useful when you want Ende to choose a short-lived secure file path for you.

@@ -18,7 +18,7 @@ func main() {
 	var debug bool
 	root := &cobra.Command{
 		Use:     "ende",
-		Short:   "Ende securely encrypts secrets between developers",
+		Short:   "Send secrets securely between developers and peers",
 		Version: version,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if debug {

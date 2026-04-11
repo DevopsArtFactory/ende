@@ -19,12 +19,12 @@ type fdReader interface {
 
 func promptRecipientInput(in io.Reader, errw io.Writer) (alias string, keyOrShare string, err error) {
 	r := bufio.NewReader(in)
-	fmt.Fprint(errw, "alias: ")
+	fmt.Fprint(errw, "peer alias: ")
 	alias, err = r.ReadString('\n')
 	if err != nil && err != io.EOF {
 		return "", "", fmt.Errorf("read alias: %w", err)
 	}
-	fmt.Fprint(errw, "key/share: ")
+	fmt.Fprint(errw, "peer public key or share code: ")
 	keyOrShare, err = r.ReadString('\n')
 	if err != nil && err != io.EOF {
 		return "", "", fmt.Errorf("read key/share: %w", err)
@@ -67,7 +67,7 @@ func promptRegisterInput(in io.Reader, errw io.Writer) (alias string, recipientO
 	if err != nil && err != io.EOF {
 		return "", "", "", fmt.Errorf("read alias: %w", err)
 	}
-	fmt.Fprint(errw, "recipient key or share token: ")
+	fmt.Fprint(errw, "peer public key or share code: ")
 	recipientOrShare, err = r.ReadString('\n')
 	if err != nil && err != io.EOF {
 		return "", "", "", fmt.Errorf("read recipient/share: %w", err)
@@ -108,16 +108,16 @@ func readEnvelopeInteractive(in io.Reader, errw io.Writer) ([]byte, error) {
 
 func promptShareRegisterInput(in io.Reader, errw io.Writer) (share string, aliasOverride string, err error) {
 	r := bufio.NewReader(in)
-	fmt.Fprint(errw, "share token (ENDE-PUB-1:...): ")
+	fmt.Fprint(errw, "share code (ENDE-PUB-1:...): ")
 	share, err = r.ReadString('\n')
 	if err != nil && err != io.EOF {
-		return "", "", fmt.Errorf("read share token: %w", err)
+		return "", "", fmt.Errorf("read share code: %w", err)
 	}
 	share = strings.TrimSpace(share)
 	if share == "" {
-		return "", "", fmt.Errorf("share token is required")
+		return "", "", fmt.Errorf("share code is required")
 	}
-	fmt.Fprint(errw, "alias override (optional, Enter to use token id): ")
+	fmt.Fprint(errw, "peer name override (optional, Enter to use the shared name): ")
 	aliasOverride, err = r.ReadString('\n')
 	if err != nil && err != io.EOF {
 		return "", "", fmt.Errorf("read alias override: %w", err)

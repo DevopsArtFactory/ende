@@ -47,7 +47,7 @@ func newEncryptCommand() *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
 		Use:   "encrypt",
-		Short: "Encrypt and sign secret payload",
+		Short: "Send a secret securely",
 		Aliases: []string{
 			"enc",
 		},
@@ -151,7 +151,7 @@ func newEncryptCommand() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringSliceVarP(&tos, "to", "t", nil, "recipient alias, github:user, or age1... public key")
+	cmd.Flags().StringSliceVarP(&tos, "to", "t", nil, "peer alias, github:user, or age1... public key")
 	cmd.Flags().StringVarP(&signAs, "sign-as", "s", "", "local signing key id (optional if default signer is set)")
 	cmd.Flags().StringVarP(&in, "in", "i", "-", "input path or -")
 	cmd.Flags().StringVarP(&fileInput, "file", "f", "", "input file path (alias of --in)")
@@ -159,7 +159,7 @@ func newEncryptCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&textOut, "text", true, "output ASCII-armored envelope for copy/paste transport (default true)")
 	cmd.Flags().BoolVar(&binaryOut, "binary", false, "output raw binary envelope")
 	cmd.Flags().BoolVar(&prompt, "prompt", false, "prompt for secret value interactively")
-	cmd.Flags().BoolVar(&confirm, "confirm", false, "show recipient summary and ask for confirmation before encrypting")
+	cmd.Flags().BoolVar(&confirm, "confirm", false, "show peer summary and ask for confirmation before encrypting")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation prompt (useful with --confirm in automation)")
 	return cmd
 }
@@ -172,7 +172,7 @@ func newDecryptCommand() *cobra.Command {
 	var outTemp bool
 	cmd := &cobra.Command{
 		Use:   "decrypt",
-		Short: "Verify and decrypt envelope",
+		Short: "Receive and decrypt a secret",
 		Aliases: []string{
 			"dec",
 		},
@@ -258,7 +258,7 @@ func newVerifyCommand() *cobra.Command {
 	var in string
 	cmd := &cobra.Command{
 		Use:   "verify",
-		Short: "Verify signature without decrypting",
+		Short: "Verify who sent a secret without decrypting",
 		Aliases: []string{
 			"v",
 		},
@@ -315,7 +315,7 @@ func resolveRecipient(store *keyring.Store, target string) (age.Recipient, strin
 	}
 	r, ok := store.Recipient(target)
 	if !ok {
-		return nil, "", encryptRecipientSummary{}, fmt.Errorf("recipient alias not found: %s", target)
+		return nil, "", encryptRecipientSummary{}, fmt.Errorf("peer alias not found: %s", target)
 	}
 	rec, err := age.ParseX25519Recipient(r.AgePublic)
 	if err != nil {
@@ -344,9 +344,9 @@ func openConfirmationReader(in io.Reader) (io.Reader, io.Closer, error) {
 }
 
 func confirmEncrypt(in io.Reader, errw io.Writer, summary encryptSummary) error {
-	fmt.Fprintln(errw, "Encrypt summary:")
+	fmt.Fprintln(errw, "Send summary:")
 	for _, recipient := range summary.Recipients {
-		fmt.Fprintf(errw, "- recipient: %s (fp=%s source=%s)\n", recipient.Label, recipient.Fingerprint, recipient.Source)
+		fmt.Fprintf(errw, "- peer: %s (fp=%s source=%s)\n", recipient.Label, recipient.Fingerprint, recipient.Source)
 	}
 	fmt.Fprintf(errw, "- signer: %s\n", summary.SignerID)
 	fmt.Fprintf(errw, "- output: %s\n", summary.OutputPath)

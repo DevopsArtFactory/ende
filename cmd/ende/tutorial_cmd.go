@@ -28,11 +28,11 @@ const (
 	colorWhite   = "\033[97m"
 )
 
-func bold(s string) string    { return colorBold + s + colorReset }
-func cyan(s string) string    { return colorCyan + s + colorReset }
-func green(s string) string   { return colorGreen + s + colorReset }
-func yellow(s string) string  { return colorYellow + s + colorReset }
-func gray(s string) string    { return colorGray + s + colorReset }
+func bold(s string) string   { return colorBold + s + colorReset }
+func cyan(s string) string   { return colorCyan + s + colorReset }
+func green(s string) string  { return colorGreen + s + colorReset }
+func yellow(s string) string { return colorYellow + s + colorReset }
+func gray(s string) string   { return colorGray + s + colorReset }
 func highlight(s string) string {
 	return colorBold + colorBgBlack + colorWhite + "  " + s + "  " + colorReset
 }
@@ -102,23 +102,23 @@ var langs = map[string]tutorialLang{
 		keygenOpt2:        "  [2] Use an existing key",
 		keygenNameHint:    "  --name is the identity used between sender and recipient (e.g. -t, --sign-as).",
 		keygenCmd:         "  ende key keygen --name <your-name> --export-public",
-		keygenDone:        "Key generated. Share the token below with your peer:",
-		keygenExistDone:   "Key found. Share the token below with your peer:",
+		keygenDone:        "Key generated. Share the code below with your peer:",
+		keygenExistDone:   "Key found. Share the code below with your peer:",
 		keygenNotFound:    "Key not found. Please check the name with `ende key list`.",
 		keygenShareLabel:  "  share: ",
 		register:          "Register a peer (recipient)",
 		registerOption:    "How do you want to register the peer?",
-		registerOpt1:      "  [1] Paste peer's share token (peer already has a key)",
+		registerOpt1:      "  [1] Paste peer's share code (peer already has a key)",
 		registerOpt2:      "  [2] Generate a key for the peer now (local test)",
-		registerDesc:      "Paste the peer's share token to register them as a recipient and trusted sender.",
-		registerShareHint: "  The share token is the 'share:' value printed during the peer's keygen.",
+		registerDesc:      "Paste the peer's share code to add them as a peer and trusted signing key.",
+		registerShareHint: "  The share code is the 'share:' value printed during the peer's keygen.",
 		registerExists:    "Already registered? Remove first:",
 		registerUnreg:     "  ende unregister <alias>",
 		registerRetry:     "Then run register again.",
 		registerOk:        "Registered peer: ",
 		registerSkipped:   "No token entered, skipping registration.",
 		registerPeerName:  "Enter peer key name: ",
-		registerPeerShare: "Peer's share token: ",
+		registerPeerShare: "Peer's share code: ",
 		encryptTitle:      "Encrypt a secret",
 		encryptDesc:       "Encrypt plaintext and sign it with your key.",
 		encryptToHint:     "  -t      : the alias registered in Step 2 (the recipient)",
@@ -143,7 +143,7 @@ var langs = map[string]tutorialLang{
 		done:              "Tutorial complete. Happy encrypting!",
 		pressEnter:        "  [Press Enter to continue]",
 		inputName:         "Enter your key name: ",
-		inputShare:        "Enter peer's share token (ENDE-PUB-1:...) or press Enter to skip: ",
+		inputShare:        "Enter peer's share code (ENDE-PUB-1:...) or press Enter to skip: ",
 	},
 	"kr": {
 		selectLang:        "Select language / 언어 선택 [en/kr]: ",
@@ -155,23 +155,23 @@ var langs = map[string]tutorialLang{
 		keygenOpt2:        "  [2] 기존 키 사용",
 		keygenNameHint:    "  --name은 송신자와 수신자 간 식별에 사용되는 이름입니다 (예: -t, --sign-as).",
 		keygenCmd:         "  ende key keygen --name <이름> --export-public",
-		keygenDone:        "키가 생성됐습니다. 아래 토큰을 상대방에게 전달하세요:",
-		keygenExistDone:   "키를 찾았습니다. 아래 토큰을 상대방에게 전달하세요:",
+		keygenDone:        "키가 생성됐습니다. 아래 공유 코드를 상대방에게 전달하세요:",
+		keygenExistDone:   "키를 찾았습니다. 아래 공유 코드를 상대방에게 전달하세요:",
 		keygenNotFound:    "키를 찾을 수 없습니다. `ende key list`로 이름을 확인하세요.",
 		keygenShareLabel:  "  share: ",
 		register:          "상대방 등록 (수신자)",
 		registerOption:    "상대방 등록 방법을 선택하세요:",
-		registerOpt1:      "  [1] 상대방 share 토큰 입력 (상대방이 이미 키를 가진 경우)",
+		registerOpt1:      "  [1] 상대방 share 코드 입력 (상대방이 이미 키를 가진 경우)",
 		registerOpt2:      "  [2] 상대방 키를 직접 생성해서 등록 (로컬 테스트용)",
-		registerDesc:      "상대방의 share 토큰을 붙여넣으면 수신자 및 신뢰 발신자로 자동 등록됩니다.",
-		registerShareHint: "  share 토큰은 상대방이 keygen 시 출력된 'share:' 값입니다.",
+		registerDesc:      "상대방의 share 코드를 붙여넣으면 peer와 신뢰 발신자로 자동 등록됩니다.",
+		registerShareHint: "  share 코드는 상대방이 keygen 시 출력된 'share:' 값입니다.",
 		registerExists:    "이미 등록된 경우 먼저 제거하세요:",
 		registerUnreg:     "  ende unregister <alias>",
 		registerRetry:     "그 다음 다시 register를 실행하세요.",
 		registerOk:        "등록 완료: ",
 		registerSkipped:   "토큰 미입력, 등록을 건너뜁니다.",
 		registerPeerName:  "상대방 키 이름을 입력하세요: ",
-		registerPeerShare: "상대방 share 토큰: ",
+		registerPeerShare: "상대방 share 코드: ",
 		encryptTitle:      "비밀 암호화",
 		encryptDesc:       "평문을 암호화하고 내 키로 서명합니다.",
 		encryptToHint:     "  -t      : 단계 2에서 등록한 상대방 alias (수신자)",
@@ -196,7 +196,7 @@ var langs = map[string]tutorialLang{
 		done:              "튜토리얼 완료. 안전하게 사용하세요!",
 		pressEnter:        "  [Enter 키를 눌러 계속]",
 		inputName:         "키 이름을 입력하세요: ",
-		inputShare:        "상대방 share 토큰을 입력하세요 (ENDE-PUB-1:...) 또는 Enter로 건너뛰기: ",
+		inputShare:        "상대방 share 코드를 입력하세요 (ENDE-PUB-1:...) 또는 Enter로 건너뛰기: ",
 	},
 }
 
@@ -475,8 +475,8 @@ func tutorialKeygen(name string) (string, error) {
 	store.AddKey(keyring.KeyEntry{
 		ID:          name,
 		AgeIdentity: agePath,
-		SignPrivate:  signPath,
-		SignPublic:   signPub,
+		SignPrivate: signPath,
+		SignPublic:  signPub,
 	})
 	if err := store.AddSender(name, signPub, "local-key", "", true); err != nil {
 		return "", err
