@@ -11,6 +11,7 @@
 - The next milestone should prioritize reducing operator mistakes, not just adding platform breadth.
 - The highest-leverage improvements are the ones that increase confidence at the moment of encrypt/decrypt.
 - Near-term roadmap should focus on: masked secret entry, preflight diagnostics, recipient confirmation, and safer plaintext output handling.
+- A second UX layer should expose the common workflow through task-oriented commands such as `setup`, `add-peer`, `send`, and `receive`.
 
 ## 1. Core Security Features
 
@@ -168,6 +169,15 @@ ende init
 # 3. Team member registration (enter share token)
 # 4. Test encryption/decryption
 ```
+
+**Incremental Step**:
+```bash
+ende setup
+ende add-peer
+ende send -t bob
+ende receive -i secret.ende -o secret.txt
+```
+This keeps the existing trust model while giving new users goal-oriented entrypoints.
 
 ---
 

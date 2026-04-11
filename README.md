@@ -104,6 +104,17 @@ The tutorial guides you through:
 5. **Decrypt** — automatically decrypts the result from step 4
 
 ## Quickstart
+Prefer the task-oriented commands if you're new to Ende:
+
+```bash
+ende setup
+ende add-peer
+ende send -t <peer>
+ende receive -i secret.ende -o decrypted.txt
+```
+
+These commands use the same secure primitives as `key keygen`, `register`, `encrypt`, and `decrypt`, but present them in a workflow that is easier to remember.
+
 1. Generate local key material:
 ```bash
 ./ende key keygen --name alice --export-public --export-dir .
@@ -218,6 +229,10 @@ Use `ende doctor` to validate local trust and configuration before troubleshooti
 The command prints `ok`, `warn`, and `fail` results and exits non-zero when a hard failure is detected.
 
 ## Shortcuts
+- `ende setup` = create your default local key and print a share token
+- `ende add-peer` = `ende register`
+- `ende send` = `ende encrypt`
+- `ende receive` = `ende decrypt`
 - `ende enc` = `ende encrypt`
 - `ende dec` = `ende decrypt`
 - `ende v` = `ende verify`

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,90 +35,130 @@ func newKeygenCommand() *cobra.Command {
 			"kg",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if strings.TrimSpace(name) == "" {
-				return fmt.Errorf("--name is required")
-			}
-			diag.Debugf("keygen: start name=%s set_default=%v export_public=%v export_dir=%s", name, setDefault, exportPublic, exportDir)
-			store, err := keyring.Load()
-			if err != nil {
-				return err
-			}
-			if _, exists := store.Key(name); exists {
-				return fmt.Errorf("key %s already exists", name)
-			}
-			_, _, keysDir, err := keyring.DefaultPaths()
-			if err != nil {
-				return err
-			}
-
-			xid, err := age.GenerateX25519Identity()
-			if err != nil {
-				return fmt.Errorf("generate age identity: %w", err)
-			}
-			signPub, signPriv, err := sign.GenerateKeyPair()
-			if err != nil {
-				return err
-			}
-
-			agePath := filepath.Join(keysDir, name+".agekey")
-			signPath := filepath.Join(keysDir, name+".signkey")
-			if err := os.WriteFile(agePath, []byte(xid.String()+"\n"), 0o600); err != nil {
-				return fmt.Errorf("write age identity: %w", err)
-			}
-			if err := os.WriteFile(signPath, []byte(signPriv+"\n"), 0o600); err != nil {
-				return fmt.Errorf("write signing private key: %w", err)
-			}
-
-			store.AddKey(keyring.KeyEntry{
-				ID:          name,
-				AgeIdentity: agePath,
-				SignPrivate: signPath,
-				SignPublic:  signPub,
-			})
-			// Local keys are always trusted senders for self-verification use cases.
-			if err := store.AddSender(name, signPub, "local-key", "", true); err != nil {
-				return err
-			}
-			if setDefault {
-				if err := store.SetDefaultSigner(name); err != nil {
-					return err
-				}
-			}
-			if err := store.Save(); err != nil {
-				return err
-			}
-
-			recipientPub := xid.Recipient().String()
-			shareToken, err := encodeShareToken(name, recipientPub, signPub)
-			if err != nil {
-				return err
-			}
-			if exportPublic {
-				prefix := strings.TrimSpace(exportPrefix)
-				if prefix == "" {
-					prefix = name
-				}
-				if err := os.MkdirAll(exportDir, 0o755); err != nil {
-					return fmt.Errorf("create export dir: %w", err)
-				}
-				recipientOut := filepath.Join(exportDir, prefix+".recipient.pub")
-				signingOut := filepath.Join(exportDir, prefix+".signing.pub")
-				if err := os.WriteFile(recipientOut, []byte(recipientPub+"\n"), 0o644); err != nil {
-					return fmt.Errorf("write recipient export: %w", err)
-				}
-				if err := os.WriteFile(signingOut, []byte(signPub+"\n"), 0o644); err != nil {
-					return fmt.Errorf("write signing export: %w", err)
-				}
-				fmt.Fprintf(cmd.OutOrStdout(), "exported recipient to %s\nexported signing-public to %s\n", recipientOut, signingOut)
-			}
-
-			diag.Debugf("keygen: completed name=%s", name)
-			fmt.Fprintf(cmd.OutOrStdout(), "generated key %s\nrecipient: %s\nsigning-public: %s\nshare: %s\n", name, xid.Recipient().String(), signPub, shareToken)
-			return nil
+			return runKeygen(name, setDefault, exportPublic, exportDir, exportPrefix, cmd.OutOrStdout())
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "key id")
 	cmd.Flags().BoolVar(&setDefault, "set-default", true, "set generated key as default signer")
+	cmd.Flags().BoolVar(&exportPublic, "export-public", false, "export public keys to files")
+	cmd.Flags().StringVar(&exportDir, "export-dir", ".", "directory for exported public key files")
+	cmd.Flags().StringVar(&exportPrefix, "export-prefix", "", "filename prefix for exported files (defaults to --name)")
+	return cmd
+}
+
+func runKeygen(name string, setDefault bool, exportPublic bool, exportDir, exportPrefix string, out io.Writer) error {
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("--name is required")
+	}
+	diag.Debugf("keygen: start name=%s set_default=%v export_public=%v export_dir=%s", name, setDefault, exportPublic, exportDir)
+	store, err := keyring.Load()
+	if err != nil {
+		return err
+	}
+	if _, exists := store.Key(name); exists {
+		return fmt.Errorf("key %s already exists", name)
+	}
+	_, _, keysDir, err := keyring.DefaultPaths()
+	if err != nil {
+		return err
+	}
+
+	xid, err := age.GenerateX25519Identity()
+	if err != nil {
+		return fmt.Errorf("generate age identity: %w", err)
+	}
+	signPub, signPriv, err := sign.GenerateKeyPair()
+	if err != nil {
+		return err
+	}
+
+	agePath := filepath.Join(keysDir, name+".agekey")
+	signPath := filepath.Join(keysDir, name+".signkey")
+	if err := os.WriteFile(agePath, []byte(xid.String()+"\n"), 0o600); err != nil {
+		return fmt.Errorf("write age identity: %w", err)
+	}
+	if err := os.WriteFile(signPath, []byte(signPriv+"\n"), 0o600); err != nil {
+		return fmt.Errorf("write signing private key: %w", err)
+	}
+
+	store.AddKey(keyring.KeyEntry{
+		ID:          name,
+		AgeIdentity: agePath,
+		SignPrivate: signPath,
+		SignPublic:  signPub,
+	})
+	if err := store.AddSender(name, signPub, "local-key", "", true); err != nil {
+		return err
+	}
+	if setDefault {
+		if err := store.SetDefaultSigner(name); err != nil {
+			return err
+		}
+	}
+	if err := store.Save(); err != nil {
+		return err
+	}
+
+	recipientPub := xid.Recipient().String()
+	shareToken, err := encodeShareToken(name, recipientPub, signPub)
+	if err != nil {
+		return err
+	}
+	if exportPublic {
+		prefix := strings.TrimSpace(exportPrefix)
+		if prefix == "" {
+			prefix = name
+		}
+		if err := os.MkdirAll(exportDir, 0o755); err != nil {
+			return fmt.Errorf("create export dir: %w", err)
+		}
+		recipientOut := filepath.Join(exportDir, prefix+".recipient.pub")
+		signingOut := filepath.Join(exportDir, prefix+".signing.pub")
+		if err := os.WriteFile(recipientOut, []byte(recipientPub+"\n"), 0o644); err != nil {
+			return fmt.Errorf("write recipient export: %w", err)
+		}
+		if err := os.WriteFile(signingOut, []byte(signPub+"\n"), 0o644); err != nil {
+			return fmt.Errorf("write signing export: %w", err)
+		}
+		fmt.Fprintf(out, "exported recipient to %s\nexported signing-public to %s\n", recipientOut, signingOut)
+	}
+
+	diag.Debugf("keygen: completed name=%s", name)
+	fmt.Fprintf(out, "generated key %s\nrecipient: %s\nsigning-public: %s\nshare: %s\n", name, xid.Recipient().String(), signPub, shareToken)
+	return nil
+}
+
+func newSetupCommand() *cobra.Command {
+	var name string
+	var exportPublic bool
+	var exportDir string
+	var exportPrefix string
+	cmd := &cobra.Command{
+		Use:   "setup",
+		Short: "Set up your local key and print a share token for a peer",
+		Long:  "Set up your local key with a task-oriented command that creates your default sender key and prints a share token for peer onboarding.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if strings.TrimSpace(name) == "" {
+				fmt.Fprint(cmd.ErrOrStderr(), "your name / key id: ")
+				reader := bufio.NewReader(cmd.InOrStdin())
+				line, err := reader.ReadString('\n')
+				if err != nil && err != io.EOF {
+					return fmt.Errorf("read setup name: %w", err)
+				}
+				name = strings.TrimSpace(line)
+			}
+			if err := runKeygen(name, true, exportPublic, exportDir, exportPrefix, cmd.OutOrStdout()); err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "")
+			fmt.Fprintln(cmd.OutOrStdout(), "Next steps:")
+			fmt.Fprintln(cmd.OutOrStdout(), "- Share the `share:` token with your peer.")
+			fmt.Fprintln(cmd.OutOrStdout(), "- Ask them to run `ende add-peer` or `ende register` with that token.")
+			fmt.Fprintln(cmd.OutOrStdout(), "- Then send a secret with `ende send -t <peer>`.")
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&name, "name", "", "your local key id")
 	cmd.Flags().BoolVar(&exportPublic, "export-public", false, "export public keys to files")
 	cmd.Flags().StringVar(&exportDir, "export-dir", ".", "directory for exported public key files")
 	cmd.Flags().StringVar(&exportPrefix, "export-prefix", "", "filename prefix for exported files (defaults to --name)")
