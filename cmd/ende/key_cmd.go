@@ -274,7 +274,7 @@ func newKeyShareCommand() *cobra.Command {
 	var name string
 	cmd := &cobra.Command{
 		Use:   "share",
-		Short: "Print share token for an existing local key",
+		Short: "Print a share code for an existing local key",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if name == "" && len(args) == 1 {
 				name = args[0]

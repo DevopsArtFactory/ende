@@ -12,7 +12,7 @@ import (
 )
 
 func newSenderCommand() *cobra.Command {
-	cmd := &cobra.Command{Use: "sender", Short: "Manage trusted sender signing keys", Aliases: []string{"snd"}}
+	cmd := &cobra.Command{Use: "sender", Short: "Manage trusted peer signing keys", Aliases: []string{"snd"}}
 	cmd.AddCommand(newSenderAddCommand(), newSenderShowCommand(), newSenderRotateCommand(), newSenderListCommand())
 	return cmd
 }
@@ -22,7 +22,7 @@ func newSenderAddCommand() *cobra.Command {
 	var force bool
 	cmd := &cobra.Command{
 		Use:   "add",
-		Short: "Add trusted sender signing public key",
+		Short: "Add a trusted peer signing public key",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if id == "" || signingPublic == "" {
 				return fmt.Errorf("--id and --signing-public are required")
@@ -56,7 +56,7 @@ func newSenderAddCommand() *cobra.Command {
 }
 
 func newRecipientCommand() *cobra.Command {
-	cmd := &cobra.Command{Use: "recipient", Short: "Manage recipient aliases", Aliases: []string{"rcpt"}}
+	cmd := &cobra.Command{Use: "recipient", Short: "Manage peer aliases", Aliases: []string{"rcpt"}}
 	cmd.AddCommand(newRecipientAddCommand(), newRecipientShowCommand(), newRecipientRotateCommand())
 	return cmd
 }
@@ -66,7 +66,7 @@ func newRegisterCommand() *cobra.Command {
 	var force bool
 	cmd := &cobra.Command{
 		Use:     "register",
-		Short:   "Register recipient and trusted sender in one step",
+		Short:   "Add a peer from a share code or public keys",
 		Aliases: []string{"reg"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			store, err := keyring.Load()
@@ -151,7 +151,7 @@ func newUnregisterCommand() *cobra.Command {
 	var force bool
 	cmd := &cobra.Command{
 		Use:     "unregister <alias>",
-		Short:   "Remove recipient and trusted sender registration for an alias",
+		Short:   "Remove a peer alias and its trusted signing key",
 		Aliases: []string{"unreg"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -185,7 +185,7 @@ func newRecipientAddCommand() *cobra.Command {
 	var force bool
 	cmd := &cobra.Command{
 		Use:   "add",
-		Short: "Add recipient by alias or GitHub username",
+		Short: "Add a peer by alias, share code, or GitHub username",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			store, err := keyring.Load()
 			if err != nil {
@@ -288,9 +288,9 @@ func newRecipientAddCommand() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&alias, "alias", "", "recipient alias")
+	cmd.Flags().StringVar(&alias, "alias", "", "peer alias")
 	cmd.Flags().StringVar(&key, "key", "", "age recipient public key")
-	cmd.Flags().StringVar(&share, "share", "", "share token from keygen output")
+	cmd.Flags().StringVar(&share, "share", "", "share code from keygen output")
 	cmd.Flags().StringVar(&githubUser, "github", "", "github username (optional resolver)")
 	cmd.Flags().IntVar(&keyIndex, "key-index", 0, "github ssh key index for pinning")
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing recipient alias")
@@ -300,7 +300,7 @@ func newRecipientAddCommand() *cobra.Command {
 func newSenderListCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List trusted senders",
+		Short: "List trusted peer signing keys",
 		Aliases: []string{
 			"ls",
 		},
@@ -322,7 +322,7 @@ func newSenderListCommand() *cobra.Command {
 func newSenderShowCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "show <id>",
-		Short: "Show trusted sender details",
+		Short: "Show trusted peer signing key details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			store, err := keyring.Load()
@@ -344,7 +344,7 @@ func newSenderRotateCommand() *cobra.Command {
 	var signingPublic string
 	cmd := &cobra.Command{
 		Use:   "rotate <id>",
-		Short: "Rotate trusted sender signing public key",
+		Short: "Rotate a trusted peer signing public key",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if signingPublic == "" {
@@ -378,7 +378,7 @@ func newSenderRotateCommand() *cobra.Command {
 func newRecipientShowCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "show <alias>",
-		Short: "Show recipient details",
+		Short: "Show peer details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			store, err := keyring.Load()
@@ -400,7 +400,7 @@ func newRecipientRotateCommand() *cobra.Command {
 	var key string
 	cmd := &cobra.Command{
 		Use:   "rotate <alias>",
-		Short: "Rotate recipient public key",
+		Short: "Rotate a peer public key",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if key == "" {

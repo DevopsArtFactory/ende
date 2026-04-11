@@ -129,8 +129,8 @@ func TestConfirmEncryptAcceptsYes(t *testing.T) {
 		t.Fatalf("confirmEncrypt: %v", err)
 	}
 	got := errBuf.String()
-	if !strings.Contains(got, "recipient: bob") {
-		t.Fatalf("expected recipient summary, got:\n%s", got)
+	if !strings.Contains(got, "peer: bob") {
+		t.Fatalf("expected peer summary, got:\n%s", got)
 	}
 	if !strings.Contains(got, "Continue? [y/N]: ") {
 		t.Fatalf("expected confirmation prompt, got:\n%s", got)
