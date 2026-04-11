@@ -67,7 +67,7 @@ func newRegisterCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "register",
 		Short:   "Register recipient and trusted sender in one step",
-		Aliases: []string{"reg"},
+		Aliases: []string{"reg", "add-peer"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			store, err := keyring.Load()
 			if err != nil {

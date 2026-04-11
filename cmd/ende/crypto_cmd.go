@@ -50,6 +50,7 @@ func newEncryptCommand() *cobra.Command {
 		Short: "Encrypt and sign secret payload",
 		Aliases: []string{
 			"enc",
+			"send",
 		},
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if textOut && binaryOut {
@@ -175,6 +176,7 @@ func newDecryptCommand() *cobra.Command {
 		Short: "Verify and decrypt envelope",
 		Aliases: []string{
 			"dec",
+			"receive",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !outTemp {
