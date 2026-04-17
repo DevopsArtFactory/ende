@@ -50,7 +50,7 @@ Invoke-WebRequest -Uri "https://github.com/DevopsArtFactory/ende/releases/downlo
 ---
 
 ## 2. 초기 준비 (각자 1회)
-각 개발자는 로컬에 자신의 키를 생성합니다.
+각 개발자는 로컬에 자신의 키를 한 번 생성합니다.
 
 ```bash
 ./ende key keygen --name <내-ID>
@@ -58,11 +58,25 @@ Invoke-WebRequest -Uri "https://github.com/DevopsArtFactory/ende/releases/downlo
 
 예:
 ```bash
-./ende key keygen --name alice --export-public --export-dir .
-./ende key keygen --name bob --export-public --export-dir .
+./ende key keygen --name alice
 ```
 
-`keygen` 출력의 `share:` 토큰을 상대에게 전달하면 됩니다.
+`keygen` 출력에는 아래가 포함됩니다.
+- recipient 공개키
+- signing 공개키
+- `share:` 코드 (`ENDE-PUB-1:...`)
+
+share 코드는 나중에 다시 출력할 수 있습니다.
+
+```bash
+./ende key share --name alice
+```
+
+기본 송신자도 한 번 설정해두면 편합니다.
+
+```bash
+./ende key use --name alice
+```
 
 생성되는 항목:
 - `~/.config/ende/keyring.yaml`
@@ -73,28 +87,33 @@ Invoke-WebRequest -Uri "https://github.com/DevopsArtFactory/ende/releases/downlo
 
 ## 3. 보내는 사람(Alice) 기준
 
-### 3-1) 받는 사람(Bob)의 recipient 공개키 등록
-Bob이 자신의 recipient 공개키를 전달하면 Alice가 alias로 등록합니다.
+### 3-1) Bob의 share 코드로 등록
+Bob이 자신의 `share:` 코드를 Alice에게 전달합니다.
 
 Alice 측:
 ```bash
-./ende key keygen --name alice
-# 출력된 share: ENDE-PUB-1:... 복사
-```
-
-Bob 측(share 우선 대화형 등록):
-```bash
 ./ende register
-# share token (ENDE-PUB-1:...): ENDE-PUB-1:...
-# alias override (optional, Enter to use token id):
+# share code (ENDE-PUB-1:...): ENDE-PUB-1:...
+# peer name override (optional, Enter to use the shared name):
 ```
 
-### 3-2) 비밀값 암호화 + 서명
+비대화형 방식:
 ```bash
-echo 'TOKEN=abc123' | ./ende encrypt -t bob -o secret.ende
+./ende register --alias bob --share 'ENDE-PUB-1:...'
+```
+
+### 3-2) 로컬 상태 점검
+```bash
+./ende doctor
+```
+
+### 3-3) 비밀값 암호화 + 서명
+```bash
+echo 'TOKEN=abc123' | ./ende encrypt -t bob
 ```
 
 중요:
+- 기본 출력은 armored text + stdout입니다.
 - `--sign-as`는 `ende key use`로 기본 송신자를 설정하지 않은 경우 필수입니다.
 - `--to`는 여러 번 사용 가능(다중 수신자).
 
@@ -103,12 +122,29 @@ echo 'TOKEN=abc123' | ./ende encrypt -t bob -o secret.ende
 echo 'TOKEN=abc123' | ./ende encrypt -t bob -t diana -o secret.ende
 ```
 
-### 3-3) 암호문 전달
-생성된 `secret.ende` 파일만 전달합니다.
-
-메신저/이메일 같은 텍스트 채널로 보낼 때:
+파일에서 암호화:
 ```bash
-echo 'TOKEN=abc123' | ./ende encrypt -t bob --text -o secret.txt
+./ende encrypt -t bob -f secrets.env -o secret.txt
+```
+
+raw 바이너리로 출력:
+```bash
+echo 'TOKEN=abc123' | ./ende encrypt -t bob --binary -o secret.ende
+```
+
+비밀값을 대화형으로 입력:
+```bash
+./ende encrypt -t bob --prompt -o secret.txt
+```
+
+암호화 전에 peer/출력 정보를 확인:
+```bash
+echo 'TOKEN=abc123' | ./ende encrypt -t bob --confirm -o secret.txt
+```
+
+자동화에서는:
+```bash
+echo 'TOKEN=abc123' | ./ende encrypt -t bob --confirm --yes -o secret.txt
 ```
 
 ---
@@ -140,6 +176,13 @@ echo 'TOKEN=abc123' | ./ende encrypt -t bob --text -o secret.txt
 ./ende decrypt -i secret.ende -o -
 ```
 
+그 외 출력 옵션:
+```bash
+./ende decrypt -i secret.ende -o decrypted.txt --no-clobber
+./ende decrypt -i secret.ende --out-temp
+./ende decrypt -i secret.txt --text-out
+```
+
 ---
 
 ## 5. GitHub username 기반(선택)
@@ -167,6 +210,7 @@ echo 'TOKEN=abc123' | ./ende encrypt -t bob --text -o secret.txt
 - `ende rcpt` = `ende recipient`
 - `ende snd` = `ende sender`
 - `ende reg` = `ende register`
+- `ende unreg` = `ende unregister`
 - `ende key kg` = `ende key keygen`
 - `ende key ls` = `ende key list`
 
@@ -196,7 +240,7 @@ recipient 공개키를 alias로 import
 - `--file <path>`: age recipient 키 파일 경로 (필수)
 
 ### `ende key list`
-로컬 키/recipient 목록 출력
+로컬 키/recipient/trusted sender 목록 출력
 
 ### `ende key use`
 `encrypt` 기본 송신자 키 ID 설정
@@ -204,6 +248,13 @@ recipient 공개키를 alias로 import
 옵션:
 - `--name <id>`: 키 ID
 - positional 인자 `<id>`도 지원 (`ende key use alice`)
+
+### `ende key share`
+기존 로컬 키의 share 코드 출력
+
+옵션:
+- `--name <id>`: 키 ID
+- positional 인자 `<id>`도 지원 (`ende key share alice`)
 
 ---
 
@@ -242,6 +293,8 @@ recipient 키 교체
 - `--text`: ASCII armor 출력 (기본 `true`)
 - `--binary`: raw 바이너리 envelope 출력
 - `--prompt`: 대화형으로 암호화할 값 입력
+- `--confirm`: 암호화 전 요약 확인
+- `--yes`: `--confirm` 사용 시 확인 프롬프트 생략
 
 ### `ende decrypt`
 검증 + 복호화
@@ -251,6 +304,8 @@ recipient 키 교체
 - `-o, --out <path|->`: 평문 출력 경로 (`--out -`는 명시적으로만 허용)
 - `--verify-required <bool>`: 서명 검증 강제 여부 (기본 `true`)
 - `--text-out`: 복호화 평문을 stdout으로 출력
+- `--no-clobber`: 기존 평문 파일 덮어쓰기 거부
+- `--out-temp`: 임시 `0600` 파일에 평문 저장 후 경로 출력
 
 ### `ende verify`
 복호화 없이 서명 검증
@@ -294,6 +349,9 @@ recipient + trusted sender를 한 번에 등록
 - `--recipient-key <age1...>`: 수동 원스텝 등록용 recipient 키
 - `--signing-public <base64>`: 수동 원스텝 등록용 서명 공개키
 - `--force`: 기존 recipient/sender 엔트리 덮어쓰기
+
+### `ende unregister <alias>`
+등록된 alias와 대응 trusted sender를 함께 제거
 
 ---
 

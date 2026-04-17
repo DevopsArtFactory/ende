@@ -15,7 +15,7 @@
 ## Terminology
 - `peer`: the person or device you are sending a secret to
 - `share code`: the `ENDE-PUB-1:...` string used for peer onboarding
-- `send` / `receive`: task-oriented names for `encrypt` / `decrypt`
+- `encrypt` / `decrypt`: the primary commands for sending and receiving secrets
 - `recipient` / `sender`: lower-level trust model terms still used in advanced commands
 
 ## Install/build
@@ -110,34 +110,46 @@ The tutorial guides you through:
 5. **Decrypt** — automatically decrypts the result from step 4
 
 ## Quickstart
-1. Generate local key material:
+1. Generate your local key and print a share code:
 ```bash
-./ende key keygen --name alice --export-public --export-dir .
-./ende key keygen --name bob --export-public --export-dir .
+./ende key keygen --name alice
 ```
 
-2. Alice shares the `share:` code from keygen output to Bob.
+This prints:
+- your recipient public key
+- your signing public key
+- your `share:` code (`ENDE-PUB-1:...`)
 
-You can re-print a share code later:
+2. Re-print your share code any time:
 ```bash
 ./ende key share --name alice
 ```
 
-3. Bob adds Alice as a peer in one command:
+3. Set your default signer once:
 ```bash
-./ende add-peer
+./ende key use --name alice
+```
+
+4. Register a peer from a share code:
+```bash
+./ende register
 # share code (ENDE-PUB-1:...): ENDE-PUB-1:...
 # peer name override (optional, Enter to use the shared name):
 ```
 
-4. Run a local safety check before first real use:
+You can also register non-interactively:
+```bash
+./ende register --alias bob --share 'ENDE-PUB-1:...'
+```
+
+5. Run a local safety check before first real use:
 ```bash
 ./ende doctor
 ```
 `ende doctor` checks:
 - keyring file presence and permissions
 - default signer configuration
-- private key file paths and `0600` permissions
+- private key file paths and file permission safety
 - peer / trusted-signing-key registration consistency
 
 To remove a registered alias later:
@@ -145,38 +157,44 @@ To remove a registered alias later:
 ./ende unregister alice
 ```
 
-5. Send a secret securely (default: text to stdout):
+6. Encrypt a secret for a registered peer.
+
+Default behavior:
+- output format: armored text
+- output target: stdout
+
+Example:
 ```bash
-echo 'TOKEN=abc123' | ./ende send -t bob
+echo 'TOKEN=abc123' | ./ende encrypt -t bob
 ```
 
-5-0. Encrypt from file input:
+Encrypt from a file:
 ```bash
-./ende send -t bob -f secrets.env -o secret.txt
+./ende encrypt -t bob -f secrets.env -o secret.txt
 ```
 
-5-1. Save text output to file (optional):
+Save armored text to a file:
 ```bash
-echo 'TOKEN=abc123' | ./ende send -t bob --text -o secret.txt
+echo 'TOKEN=abc123' | ./ende encrypt -t bob -o secret.txt
 ```
 
-5-2. Raw binary output (optional):
+Write raw binary instead:
 ```bash
-echo 'TOKEN=abc123' | ./ende send -t bob --binary -o secret.ende
+echo 'TOKEN=abc123' | ./ende encrypt -t bob --binary -o secret.ende
 ```
 
-5-3. Prompt for a secret interactively without echoing it to the terminal:
+Prompt for a secret interactively without echoing it:
 ```bash
-./ende send -t bob --prompt -o secret.txt
+./ende encrypt -t bob --prompt -o secret.txt
 ```
 Interactive prompt notes:
 - TTY input is masked so the secret is not echoed while typing.
 - Empty prompt input is rejected.
 - Non-interactive stdin/file workflows continue to work as before.
 
-5-4. Review peer and output details before sending:
+Review peer and output details before encrypting:
 ```bash
-echo 'TOKEN=abc123' | ./ende send -t bob --confirm -o secret.txt
+echo 'TOKEN=abc123' | ./ende encrypt -t bob --confirm -o secret.txt
 ```
 `--confirm` shows:
 - peer alias and short fingerprint
@@ -186,32 +204,49 @@ echo 'TOKEN=abc123' | ./ende send -t bob --confirm -o secret.txt
 
 For automation, you can keep the summary behavior in scripts and skip the prompt explicitly:
 ```bash
-echo 'TOKEN=abc123' | ./ende send -t bob --confirm --yes -o secret.txt
+echo 'TOKEN=abc123' | ./ende encrypt -t bob --confirm --yes -o secret.txt
 ```
 
-6. Receive and decrypt:
+7. Verify and decrypt:
 ```bash
 ./ende verify -i secret.ende
-./ende receive -i secret.ende -o decrypted.txt
+./ende decrypt -i secret.ende -o decrypted.txt
 ```
 
 Text envelope input is also supported:
 ```bash
 ./ende verify -i secret.txt
-./ende receive -i secret.txt -o decrypted.txt
-./ende receive -i secret.txt --text-out
+./ende decrypt -i secret.txt -o decrypted.txt
+./ende decrypt -i secret.txt --text-out
 ```
 
 Safer plaintext output options:
 ```bash
 # Refuse to overwrite an existing plaintext file
-./ende receive -i secret.ende -o decrypted.txt --no-clobber
+./ende decrypt -i secret.ende -o decrypted.txt --no-clobber
 
 # Write plaintext to a temporary 0600 file and print the path
-./ende receive -i secret.ende --out-temp
+./ende decrypt -i secret.ende --out-temp
 ```
 
 `--out-temp` is useful when you want Ende to choose a short-lived secure file path for you.
+
+## Peer Inspection
+
+Show a registered recipient:
+```bash
+./ende recipient show bob
+```
+
+Show the trusted signing key for the same alias:
+```bash
+./ende sender show bob
+```
+
+List everything currently registered:
+```bash
+./ende key list
+```
 
 ## Health Checks
 
@@ -230,6 +265,8 @@ The command prints `ok`, `warn`, and `fail` results and exits non-zero when a ha
 - `ende k` = `ende key`
 - `ende rcpt` = `ende recipient`
 - `ende snd` = `ende sender`
+- `ende reg` = `ende register`
+- `ende unreg` = `ende unregister`
 - `ende key kg` = `ende key keygen`
 - `ende key ls` = `ende key list`
 
@@ -255,6 +292,10 @@ This performs GitHub SSH key lookup for identity pinning (TOFU) and stores a pin
 ## Auto-generated CLI options
 See the generated options table and raw `--help` output:
 - [CLI_HELP.md](CLI_HELP.md)
+
+| Skill | Description |
+|-------|-------------|
+| [ende-secret-share](.kiro/skills/ende-secret-share/) | ende CLI로 팀원을 peer 등록하고 시크릿을 암호화하여 클립보드로 안전하게 전달한다. |
 
 ## Open Source
 - License: [LICENSE](LICENSE)
