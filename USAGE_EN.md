@@ -50,7 +50,7 @@ Invoke-WebRequest -Uri "https://github.com/DevopsArtFactory/ende/releases/downlo
 ---
 
 ## 2. Initial Setup (One-time per user)
-Each developer generates their local keys.
+Each developer generates their own local key once.
 
 ```bash
 ./ende key keygen --name <my-id>
@@ -58,11 +58,25 @@ Each developer generates their local keys.
 
 Example:
 ```bash
-./ende key keygen --name alice --export-public --export-dir .
-./ende key keygen --name bob --export-public --export-dir .
+./ende key keygen --name alice
 ```
 
-`keygen` output includes a `share:` token. Copy that token to the other user.
+`keygen` prints:
+- your recipient public key
+- your signing public key
+- your `share:` code (`ENDE-PUB-1:...`)
+
+You can print the share code again later:
+
+```bash
+./ende key share --name alice
+```
+
+Set your default signer once:
+
+```bash
+./ende key use --name alice
+```
 
 Generated assets:
 - `~/.config/ende/keyring.yaml`
@@ -73,28 +87,33 @@ Generated assets:
 
 ## 3. Sender (Alice) Workflow
 
-### 3-1) Register recipient (Bob) public key
-Bob exports his recipient public key; Alice stores it as an alias.
+### 3-1) Register Bob from a share code
+Bob sends his `share:` code to Alice.
 
 On Alice's side:
 ```bash
-./ende key keygen --name alice
-# copy `share: ENDE-PUB-1:...`
-```
-
-On Bob's side (share-first interactive onboarding):
-```bash
 ./ende register
-# share token (ENDE-PUB-1:...): ENDE-PUB-1:...
-# alias override (optional, Enter to use token id):
+# share code (ENDE-PUB-1:...): ENDE-PUB-1:...
+# peer name override (optional, Enter to use the shared name):
 ```
 
-### 3-2) Encrypt + sign secret
+Non-interactive form:
 ```bash
-echo 'TOKEN=abc123' | ./ende encrypt -t bob -o secret.ende
+./ende register --alias bob --share 'ENDE-PUB-1:...'
+```
+
+### 3-2) Run a local safety check
+```bash
+./ende doctor
+```
+
+### 3-3) Encrypt + sign secret
+```bash
+echo 'TOKEN=abc123' | ./ende encrypt -t bob
 ```
 
 Important:
+- Default output is armored text to stdout.
 - `--sign-as` is required unless a default signer is set via `ende key use`.
 - `--to` can be repeated for multi-recipient delivery.
 
@@ -103,12 +122,29 @@ Multi-recipient example:
 echo 'TOKEN=abc123' | ./ende encrypt -t bob -t diana -o secret.ende
 ```
 
-### 3-3) Send ciphertext file
-Only send `secret.ende`.
-
-For text-only channels (messenger/email), use:
+Encrypt from a file:
 ```bash
-echo 'TOKEN=abc123' | ./ende encrypt -t bob --text -o secret.txt
+./ende encrypt -t bob -f secrets.env -o secret.txt
+```
+
+Write raw binary instead of text:
+```bash
+echo 'TOKEN=abc123' | ./ende encrypt -t bob --binary -o secret.ende
+```
+
+Prompt for a secret interactively:
+```bash
+./ende encrypt -t bob --prompt -o secret.txt
+```
+
+Review peer and output details before encrypting:
+```bash
+echo 'TOKEN=abc123' | ./ende encrypt -t bob --confirm -o secret.txt
+```
+
+For automation:
+```bash
+echo 'TOKEN=abc123' | ./ende encrypt -t bob --confirm --yes -o secret.txt
 ```
 
 ---
@@ -140,6 +176,13 @@ Explicit stdout example:
 ./ende decrypt -i secret.ende -o -
 ```
 
+Other plaintext output options:
+```bash
+./ende decrypt -i secret.ende -o decrypted.txt --no-clobber
+./ende decrypt -i secret.ende --out-temp
+./ende decrypt -i secret.txt --text-out
+```
+
 ---
 
 ## 5. GitHub Username Mode (Optional)
@@ -167,6 +210,7 @@ Behavior:
 - `ende rcpt` = `ende recipient`
 - `ende snd` = `ende sender`
 - `ende reg` = `ende register`
+- `ende unreg` = `ende unregister`
 - `ende key kg` = `ende key keygen`
 - `ende key ls` = `ende key list`
 
@@ -196,7 +240,7 @@ Options:
 - `--file <path>`: file containing age recipient key (required)
 
 ### `ende key list`
-List local keys and recipient aliases.
+List local keys, recipients, and trusted senders.
 
 ### `ende key use`
 Set default signer key ID for `encrypt`.
@@ -204,6 +248,13 @@ Set default signer key ID for `encrypt`.
 Options:
 - `--name <id>`: key ID
 - positional arg `<id>` is also supported (`ende key use alice`)
+
+### `ende key share`
+Print a share code for an existing local key.
+
+Options:
+- `--name <id>`: key ID
+- positional arg `<id>` is also supported (`ende key share alice`)
 
 ---
 
@@ -242,6 +293,8 @@ Options:
 - `--text`: output ASCII-armored envelope (default `true`)
 - `--binary`: output raw binary envelope
 - `--prompt`: prompt secret input interactively
+- `--confirm`: show a summary and ask before encrypting
+- `--yes`: skip the confirmation prompt when `--confirm` is used
 
 ### `ende decrypt`
 Verify + decrypt envelope.
@@ -251,6 +304,8 @@ Options:
 - `-o, --out <path|->`: plaintext output (`--out -` must be explicit)
 - `--verify-required <bool>`: enforce signature verification (default `true`)
 - `--text-out`: print decrypted plaintext to stdout
+- `--no-clobber`: refuse to overwrite an existing plaintext file
+- `--out-temp`: write plaintext to a temporary `0600` file and print the path
 
 ### `ende verify`
 Verify signature without decrypting.
@@ -294,6 +349,9 @@ Options:
 - `--recipient-key <age1...>`: recipient key for manual one-step registration
 - `--signing-public <base64>`: sender signing public key for manual one-step registration
 - `--force`: overwrite existing recipient/sender entries
+
+### `ende unregister <alias>`
+Remove a registered alias and its matching trusted sender entry.
 
 ---
 
