@@ -1,0 +1,42 @@
+services:
+  keyserver:
+    build:
+      context: .
+      dockerfile: keyserver/Dockerfile
+    environment:
+      ENDE_KEYSERVER_BACKEND: file
+      ENDE_KEYSERVER_FILE: /data/keyserver.json
+      ENDE_KEYSERVER_HOST: 0.0.0.0
+      ENDE_KEYSERVER_PORT: "8765"
+      ENDE_KEYSERVER_REQUIRE_AUTH: "1"
+      ENDE_KEYSERVER_DEV_AUTH: "1"
+      ENDE_KEYSERVER_ALLOWED_PEERS: alice,bob
+      ENDE_KEYSERVER_DEFAULT_PROVIDER: github
+      ENDE_KEYSERVER_GITHUB_CLIENT_ID: compose-github-client
+      ENDE_KEYSERVER_OKTA_CLIENT_ID: compose-okta-client
+      ENDE_KEYSERVER_OKTA_ISSUER: https://okta.example.test/oauth2/default
+    ports:
+      - "8765:8765"
+    volumes:
+      - keyserver-data:/data
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import json, urllib.request; json.load(urllib.request.urlopen('http://127.0.0.1:8765/health', timeout=2))"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  smoke:
+    image: golang:1.25
+    working_dir: /src
+    environment:
+      GOFLAGS: -mod=vendor
+      ENDE_KEYSERVER_URL: http://keyserver:8765
+    volumes:
+      - .:/src
+    depends_on:
+      keyserver:
+        condition: service_healthy
+    command: ["sh", "scripts/keyserver-compose-smoke.sh"]
+
+volumes:
+  keyserver-data:
