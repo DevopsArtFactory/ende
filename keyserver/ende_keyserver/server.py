@@ -4,6 +4,7 @@ import json
 import os
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from ipaddress import ip_address
 from typing import Any
 from urllib.parse import unquote, urlparse
 
@@ -81,7 +82,8 @@ class KeyserverHandler(BaseHTTPRequestHandler):
 
     def _authorized(self) -> bool:
         if not self.admin_token:
-            return True
+            self._json(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
+            return False
         expected = f"Bearer {self.admin_token}"
         if self.headers.get("Authorization") == expected:
             return True
@@ -93,7 +95,7 @@ class KeyserverHandler(BaseHTTPRequestHandler):
         if self.admin_token and auth == f"Bearer {self.admin_token}":
             return True
         if not auth.startswith("Bearer "):
-            if not self.admin_token and not os.getenv("ENDE_KEYSERVER_REQUIRE_AUTH", ""):
+            if not self.admin_token and _env_enabled("ENDE_KEYSERVER_ALLOW_UNAUTHENTICATED_WRITES"):
                 return True
             self._json(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
             return False
@@ -166,7 +168,9 @@ def make_handler(store: Store, admin_token: str = "") -> type[KeyserverHandler]:
 def main() -> None:
     host = os.getenv("ENDE_KEYSERVER_HOST", "127.0.0.1")
     port = int(os.getenv("ENDE_KEYSERVER_PORT", "8765"))
-    handler = make_handler(store_from_env(), os.getenv("ENDE_KEYSERVER_ADMIN_TOKEN", ""))
+    admin_token = os.getenv("ENDE_KEYSERVER_ADMIN_TOKEN", "")
+    validate_write_auth_config(host, admin_token)
+    handler = make_handler(store_from_env(), admin_token)
     server = ThreadingHTTPServer((host, port), handler)
     print(f"ende keyserver listening on http://{host}:{port}")
     server.serve_forever()
@@ -174,6 +178,35 @@ def main() -> None:
 
 def _path_id(path: str, prefix: str) -> str:
     return unquote(path.removeprefix(prefix)).strip()
+
+
+def validate_write_auth_config(host: str, admin_token: str) -> None:
+    if admin_token:
+        return
+    if not _env_enabled("ENDE_KEYSERVER_ALLOW_UNAUTHENTICATED_WRITES"):
+        return
+    if _is_loopback_host(host):
+        return
+    if _env_enabled("ENDE_KEYSERVER_ALLOW_UNSAFE_UNAUTHENTICATED_WRITES"):
+        return
+    raise ValueError(
+        "ENDE_KEYSERVER_ALLOW_UNAUTHENTICATED_WRITES requires a loopback bind unless "
+        "ENDE_KEYSERVER_ALLOW_UNSAFE_UNAUTHENTICATED_WRITES=1 is set"
+    )
+
+
+def _env_enabled(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _is_loopback_host(host: str) -> bool:
+    normalized = host.strip().lower()
+    if normalized == "localhost":
+        return True
+    try:
+        return ip_address(normalized).is_loopback
+    except ValueError:
+        return False
 
 
 def auth_config_from_env() -> dict[str, Any]:

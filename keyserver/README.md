@@ -14,7 +14,9 @@ model. Clients should still confirm and pin fetched keys locally.
 - `DELETE /v1/peers/{id}`
 - `GET /v1/share/{id}`
 
-`PUT` and `DELETE` require a bearer token when `ENDE_KEYSERVER_ADMIN_TOKEN` is set.
+`PUT` requires either an admin bearer token or a per-user publish token.
+`DELETE` requires an admin bearer token. Unauthenticated writes are disabled by
+default.
 
 Profile shape:
 
@@ -161,6 +163,11 @@ ENDE_KEYSERVER_IDENTITY_MAP=github:alice=alice,okta:alice@example.com=alice
 ENDE_KEYSERVER_OKTA_ISSUER=https://example.okta.com/oauth2/default
 ```
 
+For isolated local development only, `ENDE_KEYSERVER_ALLOW_UNAUTHENTICATED_WRITES=1`
+allows unauthenticated `PUT` requests. The server refuses that override on
+non-loopback binds unless `ENDE_KEYSERVER_ALLOW_UNSAFE_UNAUTHENTICATED_WRITES=1`
+is also set.
+
 ## DynamoDB Backend
 
 DynamoDB is a good fit for this service because profiles are small documents
@@ -183,4 +190,5 @@ Required item shape is the same as the profile JSON. The DynamoDB backend import
 - Keep Ende's local keyring pinning as the final trust decision.
 - Require TLS in production.
 - Use `ENDE_KEYSERVER_ADMIN_TOKEN` or an API gateway authorizer for writes.
+- Leave unauthenticated writes disabled outside isolated local development.
 - Key rotation should show diffs to clients before local pins are updated.

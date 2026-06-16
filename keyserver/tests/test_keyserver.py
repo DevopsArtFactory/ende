@@ -1,9 +1,11 @@
 import base64
 import json
+import os
 import unittest
 from http import HTTPStatus
 from http.client import HTTPConnection
 from threading import Thread
+from unittest.mock import patch
 
 import keyserver.ende_keyserver.server as keyserver_server
 from keyserver.ende_keyserver.auth import ProviderIdentity
@@ -14,9 +16,19 @@ from keyserver.ende_keyserver.stores import MemoryStore
 SIGNING_PUBLIC = base64.b64encode(b"a" * 32).decode()
 
 
-class KeyserverTest(unittest.TestCase):
+def valid_profile(peer_id="alice"):
+    return {
+        "id": peer_id,
+        "recipient": "age1example",
+        "signing_public": SIGNING_PUBLIC,
+    }
+
+
+class KeyserverHarness:
+    admin_token = "secret"
+
     def setUp(self):
-        handler = make_handler(MemoryStore(), "secret")
+        handler = make_handler(MemoryStore(), self.admin_token)
         from http.server import ThreadingHTTPServer
 
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
@@ -43,13 +55,11 @@ class KeyserverTest(unittest.TestCase):
         conn.close()
         return resp.status, data
 
+
+class KeyserverTest(KeyserverHarness, unittest.TestCase):
     def test_put_get_and_share_code(self):
-        profile = {
-            "id": "alice",
-            "recipient": "age1example",
-            "signing_public": SIGNING_PUBLIC,
-            "display_name": "Alice",
-        }
+        profile = valid_profile()
+        profile["display_name"] = "Alice"
         status, body = self.request("PUT", "/v1/peers/alice", profile, token="secret")
         self.assertEqual(status, HTTPStatus.OK)
         self.assertEqual(body["id"], "alice")
@@ -70,14 +80,22 @@ class KeyserverTest(unittest.TestCase):
         self.assertEqual(decoded["signing_public"], SIGNING_PUBLIC)
 
     def test_write_requires_bearer_token(self):
-        profile = {
-            "id": "alice",
-            "recipient": "age1example",
-            "signing_public": SIGNING_PUBLIC,
-        }
+        profile = valid_profile()
         status, body = self.request("PUT", "/v1/peers/alice", profile)
         self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
         self.assertEqual(body["error"], "unauthorized")
+
+    def test_delete_requires_admin_token(self):
+        status, _ = self.request("PUT", "/v1/peers/alice", valid_profile(), token="secret")
+        self.assertEqual(status, HTTPStatus.OK)
+
+        status, body = self.request("DELETE", "/v1/peers/alice")
+        self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
+        self.assertEqual(body["error"], "unauthorized")
+
+        status, body = self.request("DELETE", "/v1/peers/alice", token="secret")
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertTrue(body["deleted"])
 
     def test_invalid_profile_rejected(self):
         status, body = self.request(
@@ -108,11 +126,7 @@ class KeyserverTest(unittest.TestCase):
         self.assertEqual(status, HTTPStatus.OK)
         token = body["token"]
 
-        profile = {
-            "id": "alice",
-            "recipient": "age1example",
-            "signing_public": SIGNING_PUBLIC,
-        }
+        profile = valid_profile()
         status, _ = self.request("PUT", "/v1/peers/alice", profile, token=token)
         self.assertEqual(status, HTTPStatus.OK)
 
@@ -121,6 +135,40 @@ class KeyserverTest(unittest.TestCase):
         status, body = self.request("PUT", "/v1/peers/bob", bob, token=token)
         self.assertEqual(status, HTTPStatus.FORBIDDEN)
         self.assertIn("token cannot publish", body["error"])
+
+
+class KeyserverNoAdminTest(KeyserverHarness, unittest.TestCase):
+    admin_token = ""
+
+    def test_put_denied_by_default_without_admin_token(self):
+        status, body = self.request("PUT", "/v1/peers/alice", valid_profile())
+        self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
+        self.assertEqual(body["error"], "unauthorized")
+
+    def test_delete_denied_without_admin_token(self):
+        status, body = self.request("DELETE", "/v1/peers/alice")
+        self.assertEqual(status, HTTPStatus.UNAUTHORIZED)
+        self.assertEqual(body["error"], "unauthorized")
+
+    def test_explicit_unauthenticated_write_override_allows_publish(self):
+        env = {"ENDE_KEYSERVER_ALLOW_UNAUTHENTICATED_WRITES": "1"}
+        with patch.dict(os.environ, env, clear=True):
+            status, body = self.request("PUT", "/v1/peers/alice", valid_profile())
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertEqual(body["id"], "alice")
+
+
+class WriteAuthConfigTest(unittest.TestCase):
+    def test_unauthenticated_write_override_rejects_non_loopback_bind(self):
+        env = {"ENDE_KEYSERVER_ALLOW_UNAUTHENTICATED_WRITES": "1"}
+        with patch.dict(os.environ, env, clear=True):
+            with self.assertRaisesRegex(ValueError, "loopback bind"):
+                keyserver_server.validate_write_auth_config("0.0.0.0", "")
+
+    def test_unauthenticated_write_override_allows_loopback_bind(self):
+        env = {"ENDE_KEYSERVER_ALLOW_UNAUTHENTICATED_WRITES": "1"}
+        with patch.dict(os.environ, env, clear=True):
+            keyserver_server.validate_write_auth_config("127.0.0.1", "")
 
 
 if __name__ == "__main__":
