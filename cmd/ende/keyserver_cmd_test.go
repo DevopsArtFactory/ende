@@ -195,6 +195,39 @@ func TestKeyserverLoginUsesAuthConfigForDeviceFlow(t *testing.T) {
 	}
 }
 
+func TestDeviceFlowConfigRejectsUnsafeOktaIssuers(t *testing.T) {
+	tests := []string{
+		"http://okta.example.test/oauth2/default",
+		"https://127.0.0.1/oauth2/default",
+		"https://10.0.0.5/oauth2/default",
+		"https://okta.example.test/oauth2/default?next=https://evil.example.test",
+	}
+	for _, issuer := range tests {
+		t.Run(issuer, func(t *testing.T) {
+			_, _, _, err := deviceFlowConfig("okta", "client", issuer)
+			if err == nil {
+				t.Fatal("expected unsafe issuer to be rejected")
+			}
+		})
+	}
+}
+
+func TestDeviceFlowConfigAcceptsHTTPSOktaIssuer(t *testing.T) {
+	deviceEndpoint, tokenEndpoint, scope, err := deviceFlowConfig("okta", "client", "https://okta.example.test/oauth2/default/")
+	if err != nil {
+		t.Fatalf("expected valid issuer: %v", err)
+	}
+	if deviceEndpoint != "https://okta.example.test/oauth2/default/v1/device/authorize" {
+		t.Fatalf("unexpected device endpoint: %s", deviceEndpoint)
+	}
+	if tokenEndpoint != "https://okta.example.test/oauth2/default/v1/token" {
+		t.Fatalf("unexpected token endpoint: %s", tokenEndpoint)
+	}
+	if scope != "openid profile email" {
+		t.Fatalf("unexpected scope: %s", scope)
+	}
+}
+
 func testShareToken(t *testing.T, id string) string {
 	t.Helper()
 	xid, err := age.GenerateX25519Identity()

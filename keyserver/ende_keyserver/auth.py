@@ -4,6 +4,8 @@ import json
 import os
 import urllib.request
 from dataclasses import dataclass
+from ipaddress import ip_address
+from urllib.parse import urlparse
 
 
 @dataclass(frozen=True)
@@ -53,9 +55,7 @@ def _verify_github(access_token: str, requested_peer_id: str) -> ProviderIdentit
 
 
 def _verify_okta(access_token: str, requested_peer_id: str) -> ProviderIdentity:
-    issuer = os.getenv("ENDE_KEYSERVER_OKTA_ISSUER", "").strip().rstrip("/")
-    if not issuer:
-        raise ValueError("ENDE_KEYSERVER_OKTA_ISSUER is required for Okta SSO")
+    issuer = validate_okta_issuer(os.getenv("ENDE_KEYSERVER_OKTA_ISSUER", ""))
     user = _get_json(
         issuer + "/v1/userinfo",
         {
@@ -69,6 +69,33 @@ def _verify_okta(access_token: str, requested_peer_id: str) -> ProviderIdentity:
     email = str(user.get("email", "") or "").strip()
     peer_id = _resolve_peer_id("okta", subject, email, requested_peer_id)
     return ProviderIdentity(provider="okta", subject=subject, peer_id=peer_id, email=email)
+
+
+def validate_okta_issuer(issuer: str) -> str:
+    clean = issuer.strip().rstrip("/")
+    if not clean:
+        raise ValueError("ENDE_KEYSERVER_OKTA_ISSUER is required for Okta SSO")
+    parsed = urlparse(clean)
+    if parsed.scheme != "https":
+        raise ValueError("Okta issuer URL must use https://")
+    if not parsed.hostname:
+        raise ValueError("Okta issuer URL must include a host")
+    if parsed.query or parsed.fragment:
+        raise ValueError("Okta issuer URL must not include query or fragment")
+    if _unsafe_okta_issuer_host(parsed.hostname):
+        raise ValueError("Okta issuer URL must not target localhost or private network hosts")
+    return parsed.geturl().rstrip("/")
+
+
+def _unsafe_okta_issuer_host(host: str) -> bool:
+    normalized = host.strip().lower()
+    if normalized == "localhost":
+        return True
+    try:
+        ip = ip_address(normalized)
+    except ValueError:
+        return False
+    return ip.is_loopback or ip.is_private or ip.is_link_local or ip.is_unspecified
 
 
 def _resolve_peer_id(provider: str, subject: str, email: str, requested_peer_id: str) -> str:

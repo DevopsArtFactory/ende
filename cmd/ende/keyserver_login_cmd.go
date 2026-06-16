@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -195,14 +196,47 @@ func deviceFlowConfig(provider, clientID, issuer string) (deviceEndpoint, tokenE
 		if clientID == "" {
 			return "", "", "", fmt.Errorf("--client-id is required for Okta login")
 		}
-		issuer = strings.TrimRight(strings.TrimSpace(issuer), "/")
-		if issuer == "" {
-			return "", "", "", fmt.Errorf("--issuer is required for Okta login")
+		issuer, err = validateOktaIssuer(issuer)
+		if err != nil {
+			return "", "", "", err
 		}
 		return issuer + "/v1/device/authorize", issuer + "/v1/token", "openid profile email", nil
 	default:
 		return "", "", "", fmt.Errorf("unsupported provider: %s", provider)
 	}
+}
+
+func validateOktaIssuer(issuer string) (string, error) {
+	raw := strings.TrimRight(strings.TrimSpace(issuer), "/")
+	if raw == "" {
+		return "", fmt.Errorf("--issuer is required for Okta login")
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return "", fmt.Errorf("invalid Okta issuer URL: %w", err)
+	}
+	if parsed.Scheme != "https" {
+		return "", fmt.Errorf("Okta issuer URL must use https://")
+	}
+	if parsed.Hostname() == "" {
+		return "", fmt.Errorf("Okta issuer URL must include a host")
+	}
+	if parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", fmt.Errorf("Okta issuer URL must not include query or fragment")
+	}
+	if isUnsafeOktaIssuerHost(parsed.Hostname()) {
+		return "", fmt.Errorf("Okta issuer URL must not target localhost or private network hosts")
+	}
+	return strings.TrimRight(parsed.String(), "/"), nil
+}
+
+func isUnsafeOktaIssuerHost(host string) bool {
+	normalized := strings.TrimSpace(strings.ToLower(host))
+	if normalized == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(normalized)
+	return ip != nil && (ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified())
 }
 
 func postFormJSON[T any](endpoint string, form url.Values) (*T, error) {

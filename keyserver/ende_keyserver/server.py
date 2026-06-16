@@ -7,7 +7,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import unquote, urlparse
 
-from .auth import verify_provider_token
+from .auth import validate_okta_issuer, verify_provider_token
 from .models import PeerProfile, TokenRecord, _now, hash_token, new_publish_token
 from .stores import Store, store_from_env
 
@@ -166,6 +166,7 @@ def make_handler(store: Store, admin_token: str = "") -> type[KeyserverHandler]:
 def main() -> None:
     host = os.getenv("ENDE_KEYSERVER_HOST", "127.0.0.1")
     port = int(os.getenv("ENDE_KEYSERVER_PORT", "8765"))
+    auth_config_from_env()
     handler = make_handler(store_from_env(), os.getenv("ENDE_KEYSERVER_ADMIN_TOKEN", ""))
     server = ThreadingHTTPServer((host, port), handler)
     print(f"ende keyserver listening on http://{host}:{port}")
@@ -184,7 +185,7 @@ def auth_config_from_env() -> dict[str, Any]:
     okta_client_id = os.getenv("ENDE_KEYSERVER_OKTA_CLIENT_ID", "").strip()
     okta_issuer = os.getenv("ENDE_KEYSERVER_OKTA_ISSUER", "").strip().rstrip("/")
     if okta_client_id and okta_issuer:
-        providers["okta"] = {"client_id": okta_client_id, "issuer": okta_issuer}
+        providers["okta"] = {"client_id": okta_client_id, "issuer": validate_okta_issuer(okta_issuer)}
     default_provider = os.getenv("ENDE_KEYSERVER_DEFAULT_PROVIDER", "").strip().lower()
     if not default_provider and providers:
         default_provider = next(iter(providers))

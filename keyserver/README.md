@@ -182,5 +182,6 @@ Required item shape is the same as the profile JSON. The DynamoDB backend import
 - Treat this service as a public directory, not a trust root.
 - Keep Ende's local keyring pinning as the final trust decision.
 - Require TLS in production.
+- Okta issuers must be HTTPS URLs and must not target localhost or private IPs.
 - Use `ENDE_KEYSERVER_ADMIN_TOKEN` or an API gateway authorizer for writes.
 - Key rotation should show diffs to clients before local pins are updated.

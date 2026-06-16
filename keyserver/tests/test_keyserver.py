@@ -6,7 +6,7 @@ from http.client import HTTPConnection
 from threading import Thread
 
 import keyserver.ende_keyserver.server as keyserver_server
-from keyserver.ende_keyserver.auth import ProviderIdentity
+from keyserver.ende_keyserver.auth import ProviderIdentity, validate_okta_issuer
 from keyserver.ende_keyserver.server import make_handler
 from keyserver.ende_keyserver.stores import MemoryStore
 
@@ -121,6 +121,23 @@ class KeyserverTest(unittest.TestCase):
         status, body = self.request("PUT", "/v1/peers/bob", bob, token=token)
         self.assertEqual(status, HTTPStatus.FORBIDDEN)
         self.assertIn("token cannot publish", body["error"])
+
+
+class OktaIssuerValidationTest(unittest.TestCase):
+    def test_rejects_unsafe_okta_issuers(self):
+        for issuer in [
+            "http://okta.example.test/oauth2/default",
+            "https://127.0.0.1/oauth2/default",
+            "https://10.0.0.5/oauth2/default",
+            "https://okta.example.test/oauth2/default?next=https://evil.example.test",
+        ]:
+            with self.subTest(issuer=issuer):
+                with self.assertRaises(ValueError):
+                    validate_okta_issuer(issuer)
+
+    def test_accepts_https_okta_issuer(self):
+        got = validate_okta_issuer("https://okta.example.test/oauth2/default/")
+        self.assertEqual(got, "https://okta.example.test/oauth2/default")
 
 
 if __name__ == "__main__":
