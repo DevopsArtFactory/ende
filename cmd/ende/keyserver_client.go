@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -18,9 +19,10 @@ import (
 )
 
 const (
-	keyserverSource   = "keyserver"
-	keyserverURLEnv   = "ENDE_KEYSERVER_URL"
-	keyserverTokenEnv = "ENDE_KEYSERVER_TOKEN"
+	keyserverSource          = "keyserver"
+	keyserverURLEnv          = "ENDE_KEYSERVER_URL"
+	keyserverTokenEnv        = "ENDE_KEYSERVER_TOKEN"
+	keyserverInsecureHTTPEnv = "ENDE_KEYSERVER_INSECURE_HTTP"
 )
 
 var keyserverClient = &http.Client{Timeout: 10 * time.Second}
@@ -47,7 +49,7 @@ type keyserverTokenFile struct {
 	Tokens map[string]string `json:"tokens"`
 }
 
-func keyserverURL(flagValue string) (string, error) {
+func keyserverURL(flagValue string, allowInsecureHTTP ...bool) (string, error) {
 	raw := strings.TrimSpace(flagValue)
 	if raw == "" {
 		raw = strings.TrimSpace(os.Getenv(keyserverURLEnv))
@@ -62,7 +64,27 @@ func keyserverURL(flagValue string) (string, error) {
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
 		return "", fmt.Errorf("keyserver URL must start with http:// or https://")
 	}
+	allowInsecure := len(allowInsecureHTTP) > 0 && allowInsecureHTTP[0]
+	if parsed.Scheme == "http" && !allowInsecure && !envEnabled(keyserverInsecureHTTPEnv) && !isLoopbackHost(parsed.Hostname()) {
+		return "", fmt.Errorf("remote keyserver URL must use https:// (use --insecure-http only for test environments)")
+	}
 	return strings.TrimRight(raw, "/"), nil
+}
+
+func envEnabled(name string) bool {
+	return strings.TrimSpace(strings.ToLower(os.Getenv(name))) == "1" ||
+		strings.TrimSpace(strings.ToLower(os.Getenv(name))) == "true" ||
+		strings.TrimSpace(strings.ToLower(os.Getenv(name))) == "yes" ||
+		strings.TrimSpace(strings.ToLower(os.Getenv(name))) == "on"
+}
+
+func isLoopbackHost(host string) bool {
+	normalized := strings.TrimSpace(strings.ToLower(host))
+	if normalized == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(normalized)
+	return ip != nil && ip.IsLoopback()
 }
 
 func keyserverToken(baseURL, flagValue string) string {

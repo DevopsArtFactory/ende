@@ -22,12 +22,13 @@ func newPeerFetchCommand() *cobra.Command {
 	var serverURL string
 	var alias string
 	var force bool
+	var insecureHTTP bool
 	cmd := &cobra.Command{
 		Use:   "fetch <peer-id>",
 		Short: "Fetch and pin a peer from a keyserver",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			baseURL, err := keyserverURL(serverURL)
+			baseURL, err := keyserverURL(serverURL, insecureHTTP)
 			if err != nil {
 				return err
 			}
@@ -54,6 +55,7 @@ func newPeerFetchCommand() *cobra.Command {
 	cmd.Flags().StringVar(&serverURL, "keyserver", "", "keyserver base URL (or ENDE_KEYSERVER_URL)")
 	cmd.Flags().StringVar(&alias, "alias", "", "local peer alias (defaults to fetched peer id)")
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite an existing peer alias")
+	cmd.Flags().BoolVar(&insecureHTTP, "insecure-http", false, "allow non-local HTTP keyserver URLs for testing")
 	return cmd
 }
 
@@ -61,13 +63,14 @@ func newPeerRefreshCommand() *cobra.Command {
 	var serverURL string
 	var remoteID string
 	var yes bool
+	var insecureHTTP bool
 	cmd := &cobra.Command{
 		Use:   "refresh <alias>",
 		Short: "Compare a pinned peer with the keyserver and update with --yes",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			alias := strings.TrimSpace(args[0])
-			baseURL, err := keyserverURL(serverURL)
+			baseURL, err := keyserverURL(serverURL, insecureHTTP)
 			if err != nil {
 				return err
 			}
@@ -117,5 +120,6 @@ func newPeerRefreshCommand() *cobra.Command {
 	cmd.Flags().StringVar(&serverURL, "keyserver", "", "keyserver base URL (or ENDE_KEYSERVER_URL)")
 	cmd.Flags().StringVar(&remoteID, "id", "", "keyserver peer id (defaults to the pinned source id or alias)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "update the local pinned peer when keyserver values differ")
+	cmd.Flags().BoolVar(&insecureHTTP, "insecure-http", false, "allow non-local HTTP keyserver URLs for testing")
 	return cmd
 }

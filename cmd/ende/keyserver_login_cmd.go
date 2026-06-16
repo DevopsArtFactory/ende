@@ -45,11 +45,12 @@ func newKeyserverLoginCommand() *cobra.Command {
 	var clientID string
 	var issuer string
 	var accessToken string
+	var insecureHTTP bool
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Login with GitHub or Okta and store a per-user publish token",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			baseURL, err := keyserverURL(serverURL)
+			baseURL, err := keyserverURL(serverURL, insecureHTTP)
 			if err != nil {
 				return err
 			}
@@ -107,6 +108,7 @@ func newKeyserverLoginCommand() *cobra.Command {
 	cmd.Flags().StringVar(&clientID, "client-id", "", "OAuth device-flow client id")
 	cmd.Flags().StringVar(&issuer, "issuer", "", "Okta issuer URL, e.g. https://example.okta.com/oauth2/default")
 	cmd.Flags().StringVar(&accessToken, "access-token", "", "provider access token for non-interactive login/testing")
+	cmd.Flags().BoolVar(&insecureHTTP, "insecure-http", false, "allow non-local HTTP keyserver URLs for testing")
 	return cmd
 }
 

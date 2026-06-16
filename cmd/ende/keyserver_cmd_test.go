@@ -195,6 +195,36 @@ func TestKeyserverLoginUsesAuthConfigForDeviceFlow(t *testing.T) {
 	}
 }
 
+func TestKeyserverURLRequiresHTTPSForRemoteHosts(t *testing.T) {
+	_, err := keyserverURL("http://keys.example.test")
+	if err == nil {
+		t.Fatal("expected remote HTTP keyserver URL to be rejected")
+	}
+	if !strings.Contains(err.Error(), "https://") {
+		t.Fatalf("expected HTTPS error, got %v", err)
+	}
+}
+
+func TestKeyserverURLAllowsLocalHTTP(t *testing.T) {
+	got, err := keyserverURL("http://127.0.0.1:8765/")
+	if err != nil {
+		t.Fatalf("expected local HTTP keyserver URL to pass: %v", err)
+	}
+	if got != "http://127.0.0.1:8765" {
+		t.Fatalf("unexpected normalized URL: %q", got)
+	}
+}
+
+func TestKeyserverURLAllowsExplicitInsecureHTTP(t *testing.T) {
+	got, err := keyserverURL("http://keyserver:8765", true)
+	if err != nil {
+		t.Fatalf("expected explicit insecure HTTP override to pass: %v", err)
+	}
+	if got != "http://keyserver:8765" {
+		t.Fatalf("unexpected normalized URL: %q", got)
+	}
+}
+
 func testShareToken(t *testing.T, id string) string {
 	t.Helper()
 	xid, err := age.GenerateX25519Identity()
