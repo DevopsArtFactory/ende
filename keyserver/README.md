@@ -161,6 +161,9 @@ ENDE_KEYSERVER_IDENTITY_MAP=github:alice=alice,okta:alice@example.com=alice
 ENDE_KEYSERVER_OKTA_ISSUER=https://example.okta.com/oauth2/default
 ```
 
+JSON request bodies are capped at 64 KiB. Larger publish or auth requests are
+rejected before the body is read.
+
 ## DynamoDB Backend
 
 DynamoDB is a good fit for this service because profiles are small documents

@@ -7,7 +7,7 @@ from threading import Thread
 
 import keyserver.ende_keyserver.server as keyserver_server
 from keyserver.ende_keyserver.auth import ProviderIdentity
-from keyserver.ende_keyserver.server import make_handler
+from keyserver.ende_keyserver.server import MAX_JSON_BODY_BYTES, make_handler
 from keyserver.ende_keyserver.stores import MemoryStore
 
 
@@ -37,6 +37,17 @@ class KeyserverTest(unittest.TestCase):
         if body is not None:
             body = json.dumps(body).encode()
             headers["Content-Type"] = "application/json"
+        conn.request(method, path, body=body, headers=headers)
+        resp = conn.getresponse()
+        data = json.loads(resp.read().decode())
+        conn.close()
+        return resp.status, data
+
+    def raw_request(self, method, path, body, token=None):
+        conn = HTTPConnection(self.host, self.port, timeout=5)
+        headers = {"Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
         conn.request(method, path, body=body, headers=headers)
         resp = conn.getresponse()
         data = json.loads(resp.read().decode())
@@ -88,6 +99,18 @@ class KeyserverTest(unittest.TestCase):
         )
         self.assertEqual(status, HTTPStatus.BAD_REQUEST)
         self.assertIn("id", body["error"])
+
+    def test_oversized_publish_body_is_rejected(self):
+        body = b"{" + b'"x":"' + (b"a" * MAX_JSON_BODY_BYTES) + b'"}'
+        status, data = self.raw_request("PUT", "/v1/peers/alice", body, token="secret")
+        self.assertEqual(status, HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+        self.assertIn("exceeds", data["error"])
+
+    def test_oversized_auth_body_is_rejected(self):
+        body = b"{" + b'"access_token":"' + (b"a" * MAX_JSON_BODY_BYTES) + b'"}'
+        status, data = self.raw_request("POST", "/v1/auth/github", body)
+        self.assertEqual(status, HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+        self.assertIn("exceeds", data["error"])
 
     def test_sso_token_can_publish_only_own_peer_id(self):
         original = keyserver_server.verify_provider_token

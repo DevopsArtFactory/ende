@@ -12,6 +12,13 @@ from .models import PeerProfile, TokenRecord, _now, hash_token, new_publish_toke
 from .stores import Store, store_from_env
 
 
+MAX_JSON_BODY_BYTES = 64 * 1024
+
+
+class RequestBodyTooLarge(ValueError):
+    pass
+
+
 class KeyserverHandler(BaseHTTPRequestHandler):
     store: Store
     admin_token: str = ""
@@ -52,6 +59,9 @@ class KeyserverHandler(BaseHTTPRequestHandler):
             return
         try:
             profile = PeerProfile.from_dict(self._read_json(), expected_id=peer_id)
+        except RequestBodyTooLarge as exc:
+            self._json(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"error": str(exc)})
+            return
         except ValueError as exc:
             self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return
@@ -124,6 +134,9 @@ class KeyserverHandler(BaseHTTPRequestHandler):
                 created_at=_now(),
             )
             self.store.put_token(record)
+        except RequestBodyTooLarge as exc:
+            self._json(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"error": str(exc)})
+            return
         except ValueError as exc:
             self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return
@@ -138,7 +151,12 @@ class KeyserverHandler(BaseHTTPRequestHandler):
         )
 
     def _read_json(self) -> dict[str, Any]:
-        length = int(self.headers.get("Content-Length", "0"))
+        raw_length = self.headers.get("Content-Length")
+        if raw_length is None:
+            raise ValueError("Content-Length is required")
+        length = int(raw_length)
+        if length > MAX_JSON_BODY_BYTES:
+            raise RequestBodyTooLarge(f"request body exceeds {MAX_JSON_BODY_BYTES} bytes")
         raw = self.rfile.read(length)
         data = json.loads(raw.decode("utf-8"))
         if not isinstance(data, dict):
