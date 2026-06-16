@@ -2,3 +2,11 @@ dist/*
 /ende
 
 .DS_*
+
+# Local agent/runtime state may contain command logs or pasted context.
+.codex/
+.omx/
+
+# Local keyserver state can include token hashes and operational metadata.
+.ende-keyserver.json
+*.ende-keyserver.json

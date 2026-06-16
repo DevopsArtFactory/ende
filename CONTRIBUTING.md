@@ -34,3 +34,9 @@ If your change affects crypto, key handling, or trust decisions, include:
 - threat model impact,
 - migration/compatibility considerations,
 - validation strategy (tests/manual steps).
+
+## Secret hygiene
+Before committing, run `git status --short` and check that local runtime
+directories, keyserver state files, environment files, and command logs are not
+staged. Do not commit credentials, publish tokens, private keys, or files that
+record local agent sessions.
