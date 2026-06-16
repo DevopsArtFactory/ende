@@ -10,13 +10,14 @@ services:
       ENDE_KEYSERVER_PORT: "8765"
       ENDE_KEYSERVER_REQUIRE_AUTH: "1"
       ENDE_KEYSERVER_DEV_AUTH: "1"
+      ENDE_KEYSERVER_ALLOW_UNSAFE_DEV_AUTH: "1"
       ENDE_KEYSERVER_ALLOWED_PEERS: alice,bob
       ENDE_KEYSERVER_DEFAULT_PROVIDER: github
       ENDE_KEYSERVER_GITHUB_CLIENT_ID: compose-github-client
       ENDE_KEYSERVER_OKTA_CLIENT_ID: compose-okta-client
       ENDE_KEYSERVER_OKTA_ISSUER: https://okta.example.test/oauth2/default
     ports:
-      - "8765:8765"
+      - "127.0.0.1:8765:8765"
     volumes:
       - keyserver-data:/data
     healthcheck:

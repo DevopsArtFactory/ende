@@ -1,9 +1,11 @@
 import base64
 import json
+import os
 import unittest
 from http import HTTPStatus
 from http.client import HTTPConnection
 from threading import Thread
+from unittest.mock import patch
 
 import keyserver.ende_keyserver.server as keyserver_server
 from keyserver.ende_keyserver.auth import ProviderIdentity
@@ -121,6 +123,27 @@ class KeyserverTest(unittest.TestCase):
         status, body = self.request("PUT", "/v1/peers/bob", bob, token=token)
         self.assertEqual(status, HTTPStatus.FORBIDDEN)
         self.assertIn("token cannot publish", body["error"])
+
+
+class RuntimeConfigTest(unittest.TestCase):
+    def test_dev_auth_rejects_non_loopback_bind_without_override(self):
+        env = {"ENDE_KEYSERVER_DEV_AUTH": "1"}
+        with patch.dict(os.environ, env, clear=True):
+            with self.assertRaisesRegex(ValueError, "loopback bind"):
+                keyserver_server.validate_runtime_config("0.0.0.0")
+
+    def test_dev_auth_allows_loopback_bind(self):
+        env = {"ENDE_KEYSERVER_DEV_AUTH": "1"}
+        with patch.dict(os.environ, env, clear=True):
+            keyserver_server.validate_runtime_config("127.0.0.1")
+
+    def test_dev_auth_allows_explicit_unsafe_override(self):
+        env = {
+            "ENDE_KEYSERVER_DEV_AUTH": "1",
+            "ENDE_KEYSERVER_ALLOW_UNSAFE_DEV_AUTH": "1",
+        }
+        with patch.dict(os.environ, env, clear=True):
+            keyserver_server.validate_runtime_config("0.0.0.0")
 
 
 if __name__ == "__main__":

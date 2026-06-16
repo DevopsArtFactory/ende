@@ -138,7 +138,10 @@ The compose setup starts the Python keyserver and runs a Go CLI smoke test that:
 - sends and receives a test secret
 
 `ENDE_KEYSERVER_DEV_AUTH=1` is enabled only in the compose test service so the
-flow can run without real GitHub or Okta credentials.
+flow can run without real GitHub or Okta credentials. The published compose
+port is loopback-only. If dev auth must bind to a non-loopback address for a
+container smoke test, set `ENDE_KEYSERVER_ALLOW_UNSAFE_DEV_AUTH=1` only in that
+test environment.
 
 Default settings:
 
@@ -183,4 +186,5 @@ Required item shape is the same as the profile JSON. The DynamoDB backend import
 - Keep Ende's local keyring pinning as the final trust decision.
 - Require TLS in production.
 - Use `ENDE_KEYSERVER_ADMIN_TOKEN` or an API gateway authorizer for writes.
+- Do not run `ENDE_KEYSERVER_DEV_AUTH=1` on a shared interface.
 - Key rotation should show diffs to clients before local pins are updated.
